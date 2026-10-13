@@ -20,9 +20,9 @@ public static class WebhookStatuses
 }
 
 /// <summary>
-/// Un webhook como lo responde la API (<c>WebhookDto</c>, y <c>WebhookWithSecretDto</c> en el
-/// alta y la rotación). Las fechas se guardan como texto: la API las escribe en la zona de la petición y el CLI las muestra
-/// tal cual. Clase y no record: su <c>ToString</c> no debe escribir el secreto si algún día termina en un mensaje.
+/// Un webhook como lo responde la API (<c>WebhookDto</c>), solo para la salida de texto. Las fechas se guardan como texto:
+/// la API las escribe en la zona de la petición y el CLI las muestra tal cual. El secreto del alta y de la rotación no
+/// pasa por aquí: se lee del JSON crudo para no depender de que la respuesta encaje en el modelo.
 /// </summary>
 public sealed class Webhook
 {
@@ -57,9 +57,6 @@ public sealed class Webhook
 
     public string? UpdatedAt { get; init; }
 
-    /// <summary>El secreto <c>whsec_…</c>: solo lo traen el alta y la rotación, y nunca durante una suplantación.</summary>
-    public string? Secret { get; init; }
-
     [JsonIgnore]
     public bool IsCliListener => Kind == WebhookKinds.CliListener;
 }
@@ -87,7 +84,9 @@ public sealed record UpdateWebhookRequest(
 /// Lo que la persona pidió cambiar con <c>webhooks update</c>; <c>null</c> es "no lo cambies". Como el <c>PUT</c> reemplaza
 /// todo, los cambios se aplican sobre el webhook que se acaba de leer para no borrar lo demás.
 /// </summary>
-/// <param name="PersonIds">Una lista vacía recibe los eventos de todas las personas, igual que en la API.</param>
+/// <param name="PersonIds">
+/// Una lista vacía (<c>--all-persons</c>) recibe los eventos de todas las personas, igual que en la API.
+/// </param>
 /// <param name="Status">Un valor de <see cref="WebhookStatuses"/>.</param>
 public sealed record WebhookChanges(
     string? Url,
@@ -96,8 +95,6 @@ public sealed record WebhookChanges(
     IReadOnlyList<string>? PersonIds,
     string? Status)
 {
-    public bool IsEmpty => Url is null && Description is null && EnabledEvents is null && PersonIds is null && Status is null;
-
     /// <summary>
     /// El reemplazo completo: lo pedido y, de lo demás, lo que <paramref name="current"/> ya tiene. El estado solo viaja si
     /// se pidió, así el <c>PUT</c> no deshace un cambio de estado que otra persona hizo entre la lectura y la escritura.

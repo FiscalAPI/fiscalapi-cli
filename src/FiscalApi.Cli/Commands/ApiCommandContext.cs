@@ -30,21 +30,12 @@ public sealed record ApiCommandContext(GlobalOptions GlobalOptions, FiscalApiCli
         writeText(Console.Out, Read(data, type));
     }
 
-    /// <summary>Como la otra sobrecarga, cuando el comando ya leyó el recurso porque necesita algo más de él.</summary>
-    public void WriteData<T>(GlobalSettings settings, JsonElement data, T value, Action<TextWriter, T> writeText)
-    {
-        if (settings.Json)
-        {
-            WriteRaw(data);
-            return;
-        }
-
-        writeText(Console.Out, value);
-    }
-
     /// <summary>El JSON del <c>data</c> sin re-serializarlo: los mismos caracteres que mandó la API.</summary>
     public void WriteRaw(JsonElement data) => Console.Out.WriteLine(data.GetRawText());
 
-    public static T Read<T>(JsonElement data, JsonTypeInfo<T> type) =>
-        data.Deserialize(type) ?? throw new InvalidOperationException("La API respondió con éxito pero sin data.");
+    /// <summary>
+    /// El modelo de texto del <c>data</c>. <see cref="ApiData.Required"/> ya descarta el que falta o es <c>null</c>, así que
+    /// la lectura no devuelve <c>null</c>.
+    /// </summary>
+    public static T Read<T>(JsonElement data, JsonTypeInfo<T> type) => ApiData.Required(data).Deserialize(type)!;
 }

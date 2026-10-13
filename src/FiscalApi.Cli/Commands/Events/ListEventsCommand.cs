@@ -13,10 +13,11 @@ namespace FiscalApi.Cli.Commands.Events;
 /// </summary>
 public sealed class ListEventsCommand : Command
 {
-    // ISO 8601: fecha, o fecha y hora con o sin segundos y fracción, con o sin zona (Z o ±hh:mm).
-    private static readonly string[] Iso8601Formats =
+    // ISO 8601: solo la fecha, o fecha y hora con o sin segundos y fracción, con o sin zona (Z o ±hh:mm).
+    private const string DateOnlyFormat = "yyyy-MM-dd";
+
+    private static readonly string[] DateTimeFormats =
     [
-        "yyyy-MM-dd",
         "yyyy-MM-dd'T'HH:mm",
         "yyyy-MM-dd'T'HH:mmK",
         "yyyy-MM-dd'T'HH:mm:ss",
@@ -41,14 +42,15 @@ public sealed class ListEventsCommand : Command
     {
         Description = "Desde este instante, incluido, en ISO 8601 (p. ej. 2026-10-01 o 2026-10-01T08:00:00-06:00); sin zona, UTC.",
         HelpName = "fecha",
-        CustomParser = ParseInstant
+        CustomParser = result => ParseInstant(result, dateIncludesWholeDay: false)
     };
 
     private readonly Option<DateTimeOffset?> _to = new("--to")
     {
-        Description = "Hasta este instante, incluido, en ISO 8601; sin zona, UTC. Por omisión, ahora.",
+        Description = "Hasta este instante, incluido, en ISO 8601; sin zona, UTC. Con solo la fecha, incluye ese día completo " +
+                      "(hasta las 23:59:59.9999999 UTC). Por omisión, ahora.",
         HelpName = "fecha",
-        CustomParser = ParseInstant
+        CustomParser = result => ParseInstant(result, dateIncludesWholeDay: true)
     };
 
     private readonly PageOptions _page = new();
@@ -81,16 +83,23 @@ public sealed class ListEventsCommand : Command
         return ExitCodes.Success;
     }
 
-    // La API compara instantes UTC: una fecha sin zona se toma como UTC y una con zona se convierte.
-    private static DateTimeOffset? ParseInstant(ArgumentResult result)
+    /// <summary>
+    /// La API compara instantes UTC, ambos extremos incluidos: una fecha sin zona se toma como UTC y una con zona se
+    /// convierte.
+    /// </summary>
+    /// <param name="dateIncludesWholeDay">
+    /// Para <c>--to</c>: "hasta el 13" incluye todo el 13, así que solo la fecha es su último instante (un tick antes del
+    /// día siguiente; la API guarda <c>createdAt</c> en <c>datetime2</c>).
+    /// </param>
+    private static DateTimeOffset? ParseInstant(ArgumentResult result, bool dateIncludesWholeDay)
     {
         var value = result.Tokens.Single().Value;
-        if (DateTimeOffset.TryParseExact(
-                value,
-                Iso8601Formats,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-                out var instant))
+        if (TryParseUtc(value, [DateOnlyFormat], out var date))
+        {
+            return dateIncludesWholeDay ? date.AddDays(1).AddTicks(-1) : date;
+        }
+
+        if (TryParseUtc(value, DateTimeFormats, out var instant))
         {
             return instant;
         }
@@ -100,4 +109,12 @@ public sealed class ListEventsCommand : Command
             $"{option} debe ser una fecha ISO 8601 (p. ej. 2026-10-01 o 2026-10-01T08:00:00-06:00); se recibió '{value}'.");
         return null;
     }
+
+    private static bool TryParseUtc(string value, string[] formats, out DateTimeOffset instant) =>
+        DateTimeOffset.TryParseExact(
+            value,
+            formats,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out instant);
 }

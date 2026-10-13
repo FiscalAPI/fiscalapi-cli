@@ -61,6 +61,21 @@ public sealed class EventsCommandTests
             _cli.SingleRequest().RequestUri!.AbsoluteUri);
     }
 
+    // La API compara to incluido (createdAt <= to): con solo la fecha, el último instante de ese día en UTC.
+    [Theory]
+    [InlineData("2026-10-13", "2026-10-13T23%3A59%3A59.9999999Z")]
+    [InlineData("2026-12-31", "2026-12-31T23%3A59%3A59.9999999Z")]
+    [InlineData("2026-10-13T00:00", "2026-10-13T00%3A00%3A00Z")]
+    [InlineData("2026-10-13T08:30:15-06:00", "2026-10-13T14%3A30%3A15Z")]
+    public async Task To_with_only_a_date_includes_that_whole_day(string to, string sent)
+    {
+        _cli.Api.RespondJson(HttpStatusCode.OK, ApiCommandHarness.Success(Page));
+
+        await _cli.RunAsync("events", "list", "--to", to);
+
+        Assert.Equal($"{EventsUrl}?to={sent}", _cli.SingleRequest().RequestUri!.AbsoluteUri);
+    }
+
     [Theory]
     [InlineData("2026-10-01", "2026-10-01T00%3A00%3A00Z")]
     [InlineData("2026-10-01T08:30", "2026-10-01T08%3A30%3A00Z")]

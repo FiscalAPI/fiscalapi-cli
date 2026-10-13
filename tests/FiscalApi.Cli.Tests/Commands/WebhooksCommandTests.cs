@@ -1,4 +1,5 @@
 using System.Net;
+using FiscalApi.Cli.Input;
 using FiscalApi.Cli.Tests.Http;
 
 namespace FiscalApi.Cli.Tests.Commands;
@@ -326,17 +327,91 @@ public sealed class WebhooksCommandTests
     }
 
     [Fact]
-    public async Task Update_with_an_empty_person_list_receives_the_events_of_every_person()
+    public async Task Update_with_all_persons_removes_the_person_filter_explicitly()
     {
         _cli.Api
             .RespondJson(HttpStatusCode.OK, ApiCommandHarness.Success(UrlWebhook))
             .RespondJson(HttpStatusCode.OK, ApiCommandHarness.Success(UrlWebhook));
 
-        await _cli.RunAsync("webhooks", "update", WebhookId, "--person", "", "--enabled");
+        var exitCode = await _cli.RunAsync("webhooks", "update", WebhookId, "--all-persons", "--enabled");
 
+        Assert.Equal(ExitCodes.Success, exitCode);
         var body = _cli.Body(1)!;
         Assert.Empty(body["personIds"]!.AsArray());
         Assert.Equal("enabled", (string?)body["status"]);
+    }
+
+    [Fact]
+    public async Task Update_of_a_webhook_for_every_person_keeps_omitting_person_ids()
+    {
+        const string forEveryPerson =
+            $$"""{"id":"{{WebhookId}}","kind":"url","url":"https://example.com/webhooks","description":"","enabledEvents":["*"],"personIds":null,"status":"enabled"}""";
+        _cli.Api
+            .RespondJson(HttpStatusCode.OK, ApiCommandHarness.Success(forEveryPerson))
+            .RespondJson(HttpStatusCode.OK, ApiCommandHarness.Success(forEveryPerson));
+
+        await _cli.RunAsync("webhooks", "update", WebhookId, "--description", "Sin filtro");
+
+        ApiCommandHarness.AssertJsonEqual(
+            $$"""{"id":"{{WebhookId}}","url":"https://example.com/webhooks","description":"Sin filtro","enabledEvents":["*"]}""",
+            _cli.Body(1));
+    }
+
+    // Un script con la variable vacía (--person "$PERSONAS") no debe ampliar el webhook a todas las personas sin avisar.
+    [Theory]
+    [InlineData("update", "")]
+    [InlineData("update", ",")]
+    [InlineData("update", " ")]
+    [InlineData("create", "")]
+    [InlineData("create", " , ")]
+    public async Task An_empty_person_list_is_a_usage_error_without_calling_the_api(string subcommand, string persons)
+    {
+        List<string> args = subcommand == "update"
+            ? ["webhooks", "update", WebhookId, "--person", persons]
+            : ["webhooks", "create", "--url", "https://example.com/webhooks", "--events", "*", "--person", persons];
+
+        var exitCode = await _cli.RunAsync(args);
+
+        Assert.Equal(ExitCodes.Usage, exitCode);
+        Assert.Contains("--person necesita al menos un id de persona; para recibir los eventos de todas usa --all-persons.", _cli.Error);
+        Assert.Empty(_cli.Api.Requests);
+    }
+
+    [Fact]
+    public async Task One_empty_person_among_others_is_also_a_usage_error()
+    {
+        var exitCode = await _cli.RunAsync("webhooks", "update", WebhookId, "--person", "persona-1", "--person", "");
+
+        Assert.Equal(ExitCodes.Usage, exitCode);
+        Assert.Empty(_cli.Api.Requests);
+    }
+
+    [Theory]
+    [InlineData("update")]
+    [InlineData("create")]
+    public async Task All_persons_with_person_is_a_usage_error(string subcommand)
+    {
+        List<string> args = subcommand == "update"
+            ? ["webhooks", "update", WebhookId]
+            : ["webhooks", "create", "--url", "https://example.com/webhooks", "--events", "*"];
+        args.AddRange(["--person", "persona-1", "--all-persons"]);
+
+        var exitCode = await _cli.RunAsync(args);
+
+        Assert.Equal(ExitCodes.Usage, exitCode);
+        Assert.Contains("--all-persons no se combina con --person.", _cli.Error);
+        Assert.Empty(_cli.Api.Requests);
+    }
+
+    [Fact]
+    public async Task Create_with_all_persons_omits_person_ids()
+    {
+        _cli.Api.RespondJson(HttpStatusCode.Created, ApiCommandHarness.Success(WebhookWithSecret));
+
+        var exitCode = await _cli.RunAsync("webhooks", "create", "--url", "https://example.com/webhooks", "--events", "*", "--all-persons");
+
+        Assert.Equal(ExitCodes.Success, exitCode);
+        ApiCommandHarness.AssertJsonEqual("""{"url":"https://example.com/webhooks","enabledEvents":["*"]}""", _cli.Body());
     }
 
     [Fact]
@@ -379,7 +454,8 @@ public sealed class WebhooksCommandTests
 
         var exitCode = await _cli.RunAsync("webhooks", "update", "escucha-1", "--events", "invoice.canceled");
 
-        Assert.Equal(ExitCodes.Usage, exitCode);
+        // Es el estado del recurso, no el uso del comando: 1, como el 400 que respondería la API.
+        Assert.Equal(ExitCodes.Failure, exitCode);
         Assert.Contains("Una escucha de CLI no se edita ni se prueba; usa fiscalapi listen y fiscalapi trigger.", _cli.Error);
         Assert.Single(_cli.Api.Requests);
     }
@@ -532,6 +608,71 @@ public sealed class WebhooksCommandTests
     }
 
     [Fact]
+    public async Task Ctrl_c_while_confirming_the_delete_exits_130_without_deleting()
+    {
+        using var ctrlC = new CancellationTokenSource();
+
+        var exitCode = await _cli.RunAsync(
+            ["webhooks", "delete", WebhookId], confirmation: new CtrlCAtPrompt(ctrlC), cancellationToken: ctrlC.Token);
+
+        Assert.Equal(ExitCodes.Cancelled, exitCode);
+        Assert.Empty(_cli.Api.Requests);
+        Assert.DoesNotContain("No se borró", _cli.Error);
+    }
+
+    // ---------------------------------------------------------------- secreto con una respuesta inesperada
+
+    // Un id numérico rompe el modelo tipado: el secreto ya se generó en el servidor y no se puede perder por eso.
+    private const string UnexpectedWithSecret = $$"""{"id":123,"enabledEvents":"*","secret":"{{Secret}}"}""";
+
+    [Theory]
+    [InlineData("create")]
+    [InlineData("rotate-secret")]
+    public async Task The_secret_is_shown_even_if_the_response_does_not_match_the_model(string subcommand)
+    {
+        _cli.Api.RespondJson(HttpStatusCode.OK, ApiCommandHarness.Success(UnexpectedWithSecret));
+        string[] args = subcommand == "create"
+            ? ["webhooks", "create", "--url", "https://example.com/webhooks", "--events", "*"]
+            : ["webhooks", "rotate-secret", WebhookId];
+
+        var exitCode = await _cli.RunAsync(args);
+
+        Assert.Equal(ExitCodes.Failure, exitCode);
+        Assert.Contains($"Secreto de firma: {Secret}", _cli.Out);
+        Assert.Equal(1, ApiCommandHarness.Occurrences(_cli.Out + _cli.Error, Secret));
+        Assert.Contains("Guarda este secreto de firma.", _cli.Error);
+    }
+
+    [Theory]
+    [InlineData("create")]
+    [InlineData("rotate-secret")]
+    public async Task With_json_the_raw_data_is_printed_even_if_it_does_not_match_the_model(string subcommand)
+    {
+        _cli.Api.RespondJson(HttpStatusCode.OK, ApiCommandHarness.Success(UnexpectedWithSecret));
+        string[] args = subcommand == "create"
+            ? ["webhooks", "create", "--url", "https://example.com/webhooks", "--events", "*", "--json"]
+            : ["webhooks", "rotate-secret", WebhookId, "--json"];
+
+        var exitCode = await _cli.RunAsync(args);
+
+        Assert.Equal(ExitCodes.Success, exitCode);
+        _cli.AssertJsonOut(UnexpectedWithSecret);
+        Assert.Contains("Guarda este secreto de firma.", _cli.Error);
+    }
+
+    [Fact]
+    public async Task A_null_data_is_reported_as_an_unexpected_response()
+    {
+        _cli.Api.RespondJson(HttpStatusCode.OK, """{"data":null,"succeeded":true,"message":"","details":""}""");
+
+        var exitCode = await _cli.RunAsync("webhooks", "retrieve", WebhookId, "--json");
+
+        Assert.Equal(ExitCodes.Failure, exitCode);
+        Assert.Contains("La API respondió con éxito pero sin data.", _cli.Error);
+        Assert.Empty(_cli.Out);
+    }
+
+    [Fact]
     public async Task Unauthorized_shows_the_login_hint()
     {
         _cli.Api.RespondJson(HttpStatusCode.Unauthorized, """{"succeeded":false,"message":"Invalid API KEY","details":""}""");
@@ -540,6 +681,21 @@ public sealed class WebhooksCommandTests
 
         Assert.Equal(ExitCodes.Failure, exitCode);
         Assert.Contains("fiscalapi login", _cli.Error);
+    }
+
+    /// <summary>
+    /// Ctrl+C con la pregunta en pantalla, como en Windows: <c>Console.ReadLine</c> devuelve <c>null</c> (no confirma) en
+    /// lugar de cancelar, y Program ya canceló el token.
+    /// </summary>
+    private sealed class CtrlCAtPrompt(CancellationTokenSource ctrlC) : IConfirmationPrompt
+    {
+        public bool IsInteractive => true;
+
+        public async Task<bool> ConfirmAsync(string question, CancellationToken cancellationToken)
+        {
+            await ctrlC.CancelAsync();
+            return false;
+        }
     }
 
     // El 400 de validación de fapi-back (GlobalExceptionMiddleware): el texto de cada falla va en data.

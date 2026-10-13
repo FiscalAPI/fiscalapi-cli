@@ -53,9 +53,10 @@ public sealed class UpdateWebhookCommand : Command
             await api.RetrieveAsync(parseResult.GetValue(_id)!, cancellationToken), FiscalApiJsonContext.Default.Webhook);
 
         // La API también lo rechaza, pero su validación de la URL (vacía en una escucha) respondería antes y confundiría.
+        // Es el estado del recurso, no el uso del comando: sale con 1, como el 400 de la API.
         if (current.IsCliListener)
         {
-            throw new UsageException(CliListenerNotEditable);
+            throw new ResourceStateException(CliListenerNotEditable);
         }
 
         var data = await api.ReplaceAsync(Changes(parseResult).ApplyTo(current), cancellationToken);
@@ -67,7 +68,8 @@ public sealed class UpdateWebhookCommand : Command
         WebhookOptions.GivenValue(parseResult, _webhook.Url),
         WebhookOptions.GivenValue(parseResult, _webhook.Description),
         WebhookOptions.GivenValue(parseResult, _webhook.Events),
-        WebhookOptions.GivenValue(parseResult, _webhook.Persons),
+        // --all-persons es la lista vacía, que la API lee como "todas las personas".
+        parseResult.GetValue(_webhook.AllPersons) ? [] : WebhookOptions.GivenValue(parseResult, _webhook.Persons),
         parseResult.GetValue(_enabled) ? WebhookStatuses.Enabled
         : parseResult.GetValue(_disabled) ? WebhookStatuses.Disabled
         : null);
@@ -75,10 +77,12 @@ public sealed class UpdateWebhookCommand : Command
     // Sin cambios, el PUT reescribiría lo mismo: casi siempre es una opción olvidada.
     private void RequireOneChange(CommandResult result)
     {
-        Option[] changes = [_webhook.Url, _webhook.Description, _webhook.Events, _webhook.Persons, _enabled, _disabled];
+        Option[] changes =
+            [_webhook.Url, _webhook.Description, _webhook.Events, _webhook.Persons, _webhook.AllPersons, _enabled, _disabled];
         if (!changes.Any(option => result.GetResult(option) is { Implicit: false }))
         {
-            result.AddError("Indica qué cambiar: --url, --description, --events, --person, --enabled o --disabled.");
+            result.AddError(
+                "Indica qué cambiar: --url, --description, --events, --person, --all-persons, --enabled o --disabled.");
         }
     }
 

@@ -10,7 +10,6 @@ namespace FiscalApi.Cli.Http;
 /// Los comandos agregan aquí los tipos de sus requests y respuestas (los enums con <c>JsonStringEnumConverter&lt;TEnum&gt;</c>).
 /// </summary>
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
-[JsonSerializable(typeof(ApiResponse))]
 [JsonSerializable(typeof(ApiResponse<PersonFeatures>))]
 [JsonSerializable(typeof(OpenCliListenerRequest))]
 [JsonSerializable(typeof(ApiResponse<CliListenerSession>))]

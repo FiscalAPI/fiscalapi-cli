@@ -32,7 +32,14 @@ internal sealed class ApiCommandHarness
     /// <param name="args">El comando sin <c>--api-base</c>, que se agrega aquí.</param>
     /// <param name="confirmationInput">Lo que la persona escribe al confirmar (<c>delete</c> sin <c>--yes</c>).</param>
     /// <param name="interactive">Si hay una persona en la terminal; con stdin redirigido, no.</param>
-    public Task<int> RunAsync(IEnumerable<string> args, string confirmationInput = "", bool interactive = false)
+    /// <param name="confirmation">Otra confirmación en lugar de la de consola (p. ej. una que simula Ctrl+C).</param>
+    /// <param name="cancellationToken">El token que Program cancela con Ctrl+C.</param>
+    public Task<int> RunAsync(
+        IEnumerable<string> args,
+        string confirmationInput = "",
+        bool interactive = false,
+        IConfirmationPrompt? confirmation = null,
+        CancellationToken cancellationToken = default)
     {
         var globalOptions = new GlobalOptions();
         var console = new CliConsole(_out, _error);
@@ -43,7 +50,7 @@ internal sealed class ApiCommandHarness
             _ => null
         });
         var apiClients = new FiscalApiClientFactory(Api, credentials, console.Error, FiscalApiClientBuilder.NoDelayRetryPolicy);
-        var confirmation = new ConsoleConfirmationPrompt(console.Error, new StringReader(confirmationInput), interactive);
+        confirmation ??= new ConsoleConfirmationPrompt(console.Error, new StringReader(confirmationInput), interactive);
         Command[] commands =
         [
             new WebhooksCommand(globalOptions, apiClients, confirmation, console),
@@ -51,7 +58,7 @@ internal sealed class ApiCommandHarness
         ];
 
         return new CliApplication(globalOptions, commands, console)
-            .RunAsync([.. args, "--api-base", FiscalApiClientBuilder.BaseAddress.ToString()], CancellationToken.None);
+            .RunAsync([.. args, "--api-base", FiscalApiClientBuilder.BaseAddress.ToString()], cancellationToken);
     }
 
     public Task<int> RunAsync(params string[] args) => RunAsync((IEnumerable<string>)args);

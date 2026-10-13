@@ -54,8 +54,8 @@ public sealed class ListenLoop(
 
                 continue;
             }
-            // Con la sesión nula falló la reapertura, no el long-polling: su 409 es el candado de otra apertura de la misma
-            // persona en curso (WebhookEndpointWriteLock de fapi-back) y otro intento lo resuelve. El 409 del long-polling
+            // Con la sesión nula falló la reapertura, no el long-polling: su 409 dice que otra apertura de la misma persona
+            // tiene tomado el candado de escritura de sus webhooks en el back, y otro intento lo resuelve. El 409 del long-polling
             // (otra sesión reemplazó a esta) no entra aquí y termina la escucha con el texto de la API.
             catch (ApiException busy) when (session is null && busy.StatusCode == HttpStatusCode.Conflict)
             {

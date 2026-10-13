@@ -28,12 +28,11 @@ public sealed class CreateWebhookCommand : Command
             parseResult.GetValue(_webhook.Url)!,
             WebhookOptions.GivenValue(parseResult, _webhook.Description),
             parseResult.GetValue(_webhook.Events)!,
+            // Sin --person (o con --all-persons, que no se combina con él) no viaja: recibe los eventos de todas.
             WebhookOptions.GivenValue(parseResult, _webhook.Persons));
 
         var data = await new WebhooksApi(_context.Client(settings)).CreateAsync(request, cancellationToken);
-        var webhook = ApiCommandContext.Read(data, FiscalApiJsonContext.Default.Webhook);
-        _context.WriteData(settings, data, webhook, WebhookView.WriteDetail);
-        WebhookView.WriteSigningSecret(_context.Console, webhook, settings.Json, rotated: false);
+        WebhookWithSecretOutput.Write(_context, settings, data, rotated: false);
         return ExitCodes.Success;
     }
 }

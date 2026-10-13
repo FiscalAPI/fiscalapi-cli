@@ -25,9 +25,7 @@ public sealed class RotateWebhookSecretCommand : Command
     {
         var settings = _context.Settings(parseResult);
         var data = await new WebhooksApi(_context.Client(settings)).RotateSecretAsync(parseResult.GetValue(_id)!, cancellationToken);
-        var webhook = ApiCommandContext.Read(data, FiscalApiJsonContext.Default.Webhook);
-        _context.WriteData(settings, data, webhook, WebhookView.WriteDetail);
-        WebhookView.WriteSigningSecret(_context.Console, webhook, settings.Json, rotated: true);
+        WebhookWithSecretOutput.Write(_context, settings, data, rotated: true);
         return ExitCodes.Success;
     }
 }

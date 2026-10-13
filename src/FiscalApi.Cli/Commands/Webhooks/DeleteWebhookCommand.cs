@@ -42,8 +42,12 @@ public sealed class DeleteWebhookCommand : Command
                 throw new UsageException("Para borrar sin confirmación interactiva usa --yes.");
             }
 
-            if (!await _confirmation.ConfirmAsync(
-                    $"¿Borrar el webhook {id}? Sus entregas pendientes se cerrarán.", cancellationToken))
+            var confirmed = await _confirmation.ConfirmAsync(
+                $"¿Borrar el webhook {id}? Sus entregas pendientes se cerrarán.", cancellationToken);
+            // En Windows, Ctrl+C con la pregunta en pantalla hace que ReadLine devuelva null (un "no") en lugar de
+            // cancelar la espera: sin esto saldría con 0 y no con 130.
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!confirmed)
             {
                 // La persona decidió no borrar: no es un error.
                 await _context.Console.Error.WriteLineAsync($"No se borró el webhook {id}.");

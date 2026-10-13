@@ -36,13 +36,15 @@ public static class WebhookView
         ]);
 
     /// <summary>
-    /// El secreto va a stdout, con el webhook; el aviso de guardarlo (texto aprobado de FE-001, D-21) es para la persona y
-    /// va a stderr, también con <c>--json</c>. Durante una suplantación la API no lo responde y no hay nada que guardar.
+    /// El secreto va a stdout, con el webhook (con <c>--json</c> ya va dentro del <c>data</c>); el aviso de guardarlo
+    /// (texto aprobado de FE-001, D-21) es para la persona y va a stderr, también con <c>--json</c>. Durante una
+    /// suplantación la API no lo responde y no hay nada que guardar.
     /// </summary>
+    /// <param name="secret">El de la respuesta, o <c>null</c> si no vino.</param>
     /// <param name="rotated">Si viene de <c>rotate-secret</c>: el anterior sigue firmando 24 horas.</param>
-    public static void WriteSigningSecret(CliConsole console, Webhook webhook, bool json, bool rotated)
+    public static void WriteSigningSecret(CliConsole console, string? secret, bool json, bool rotated)
     {
-        if (webhook.Secret is null)
+        if (secret is null)
         {
             return;
         }
@@ -50,7 +52,7 @@ public static class WebhookView
         if (!json)
         {
             console.Out.WriteLine();
-            console.Out.WriteLine($"Secreto de firma: {webhook.Secret}");
+            console.Out.WriteLine($"Secreto de firma: {secret}");
         }
 
         console.Error.WriteLine("Guarda este secreto de firma. Lo usarás para verificar que los eventos vienen de FiscalAPI.");
