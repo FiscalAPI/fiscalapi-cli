@@ -5,12 +5,12 @@ namespace FiscalApi.Cli.Listen;
 /// <summary>Las rutas de la escucha de CLI (D-28) sobre <see cref="FiscalApiClient"/>.</summary>
 public sealed class ListenerApi(FiscalApiClient client, int pollWaitSeconds)
 {
-    private const string EndpointsPath = "api/v4/webhook-endpoints";
+    private const string WebhooksPath = "api/v4/webhooks";
 
     /// <summary>Abre una sesión nueva, que reemplaza la anterior de la persona, y responde el secreto (D-29).</summary>
     public async Task<CliListenerSession> OpenAsync(IReadOnlyList<string> enabledEvents, CancellationToken cancellationToken) =>
         await client.PostAsync(
-            $"{EndpointsPath}/cli-listener",
+            $"{WebhooksPath}/cli-listener",
             new OpenCliListenerRequest(enabledEvents),
             FiscalApiJsonContext.Default.OpenCliListenerRequest,
             FiscalApiJsonContext.Default.ApiResponseCliListenerSession,
@@ -40,5 +40,5 @@ public sealed class ListenerApi(FiscalApiClient client, int pollWaitSeconds)
             FiscalApiJsonContext.Default.ApiResponseBoolean,
             cancellationToken);
 
-    private static string ListenerPath(CliListenerSession session) => $"{EndpointsPath}/{Uri.EscapeDataString(session.Id)}";
+    private static string ListenerPath(CliListenerSession session) => $"{WebhooksPath}/{Uri.EscapeDataString(session.Id)}";
 }

@@ -23,7 +23,7 @@ internal sealed class FakeListenerApi : IAsyncDisposable
     public const string ListenerId = "wh_listener_0001";
     public const string Secret = "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw";
 
-    private const string Route = "/api/v4/webhook-endpoints";
+    private const string Route = "/api/v4/webhooks";
     private static readonly TimeSpan WaitLimit = TimeSpan.FromSeconds(10);
 
     private readonly WebApplication _app;

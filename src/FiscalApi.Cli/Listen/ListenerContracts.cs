@@ -4,7 +4,7 @@ namespace FiscalApi.Cli.Listen;
 
 // Los contratos de la escucha de CLI de fapi-back (WebhookCliListenerController, D-28), con sus mismos nombres.
 
-/// <summary>El cuerpo de <c>POST /api/v4/webhook-endpoints/cli-listener</c> (<c>OpenCliListenerCommand</c>).</summary>
+/// <summary>El cuerpo de <c>POST /api/v4/webhooks/cli-listener</c> (<c>OpenCliListenerCommand</c>).</summary>
 public sealed record OpenCliListenerRequest(IReadOnlyList<string> EnabledEvents);
 
 /// <summary>
