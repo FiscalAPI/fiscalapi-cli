@@ -1,5 +1,4 @@
-using System.Net;
-using System.Net.Sockets;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -125,8 +124,9 @@ public sealed class ListenCommandTests : IAsyncLifetime
     public async Task A_refused_connection_is_acked_with_an_error()
     {
         _api.Deliver(new FakeDelivery("dlv_0001", "evt_0001", "invoice.canceled"));
+        using var closed = new ClosedPort();
 
-        StartListen("--forward-to", $"http://127.0.0.1:{FreePort()}/webhooks");
+        StartListen("--forward-to", closed.Url("webhooks").ToString());
         await ExpectAsync(_api.WaitForAcksAsync(1));
 
         var ack = Assert.Single(_api.Acks);
@@ -193,8 +193,9 @@ public sealed class ListenCommandTests : IAsyncLifetime
     public async Task A_forward_without_response_prints_the_error_on_its_line()
     {
         _api.Deliver(new FakeDelivery("dlv_0001", "evt_0001", "invoice.canceled"));
+        using var closed = new ClosedPort();
 
-        StartListen("--forward-to", $"http://127.0.0.1:{FreePort()}/webhooks");
+        StartListen("--forward-to", closed.Url("webhooks").ToString());
         await ExpectAsync(_api.WaitForAcksAsync(1));
 
         Assert.Matches(EventLine("invoice.canceled", "evt_0001", suffix: " [error: ConnectionFailed]"), Out);
@@ -340,13 +341,14 @@ public sealed class ListenCommandTests : IAsyncLifetime
     public async Task A_409_on_the_ack_is_reported_only_with_verbose(bool verbose)
     {
         const string notAwaiting = "La entrega ya no espera un acuse.";
+        // La segunda entrega es del mismo evento: el orden por evento garantiza que el acuse de la primera, con su línea,
+        // terminó antes de que la segunda se acusara.
         _api.RejectAck("dlv_0001", StatusCodes.Status409Conflict, notAwaiting)
             .Deliver(new FakeDelivery("dlv_0001", "evt_0001", "invoice.canceled"))
-            .Deliver(new FakeDelivery("dlv_0002", "evt_0002", "invoice.created"));
+            .Deliver(new FakeDelivery("dlv_0002", "evt_0001", "invoice.canceled"));
 
         StartListen(verbose ? ["--verbose"] : []);
         await ExpectAsync(_api.WaitForAcksAsync(2));
-        await ExpectAsync(_api.WaitForPollsAsync(3));
 
         Assert.Equal(verbose, Error.Contains($"No se registró el acuse de la entrega dlv_0001: {notAwaiting}"));
         Assert.Equal(2, _api.Acks.Count);
@@ -441,8 +443,9 @@ public sealed class ListenCommandTests : IAsyncLifetime
     public async Task Json_mode_reports_a_forward_without_response_with_its_error()
     {
         _api.Deliver(new FakeDelivery("dlv_0001", "evt_0001", "invoice.canceled"));
+        using var closed = new ClosedPort();
 
-        StartListen("--forward-to", $"http://127.0.0.1:{FreePort()}/webhooks", "--json");
+        StartListen("--forward-to", closed.Url("webhooks").ToString(), "--json");
         await ExpectAsync(_api.WaitForAcksAsync(1));
 
         var record = JsonNode.Parse(Out)!.AsObject();
@@ -510,7 +513,8 @@ public sealed class ListenCommandTests : IAsyncLifetime
     [Fact]
     public async Task An_unreachable_api_at_start_exits_1_without_retrying()
     {
-        var unreachable = new Uri($"http://127.0.0.1:{FreePort()}/");
+        using var closed = new ClosedPort();
+        var unreachable = closed.Url();
 
         StartListen(apiBase: unreachable);
 
@@ -562,6 +566,225 @@ public sealed class ListenCommandTests : IAsyncLifetime
         Assert.DoesNotContain(TenantKey, output);
     }
 
+    [Fact]
+    public async Task Print_secret_help_warns_that_it_replaces_a_running_listen()
+    {
+        StartListen("--help");
+
+        Assert.Equal(ExitCodes.Success, await ExitCodeAsync());
+        Assert.Contains("Abre una sesión: un listen en curso con la misma API key termina.", Out);
+    }
+
+    [Fact]
+    public async Task A_chain_of_one_event_neither_holds_the_long_polling_nor_forwards_expired_deliveries()
+    {
+        // 25 entregas del mismo evento (un lote completo) y un receptor de 300 ms: con un lease de 1 s solo caben unas
+        // cuantas; el resto vence esperando su turno y no se reenvía (la API ya las cerró con AckTimeout).
+        _timings = FastTimings with { DeliveryLease = TimeSpan.FromSeconds(1), MaxInFlightDeliveries = 2 };
+        var chain = Enumerable.Range(1, 25)
+            .Select(n => new FakeDelivery($"dlv_c{n:00}", "evt_0001", "invoice.canceled"))
+            .ToArray();
+        _api.Deliver(chain).Deliver(new FakeDelivery("dlv_otra", "evt_0002", "invoice.created"));
+        _receiver = await FakeReceiver.StartAsync(async (request, aborted) =>
+        {
+            if (request.Headers["webhook-id"] == "evt_0001")
+            {
+                await Task.Delay(300, aborted);
+            }
+
+            return StatusCodes.Status200OK;
+        });
+        var started = Stopwatch.StartNew();
+
+        StartListen("--forward-to", _receiver.Url.ToString());
+        await ExpectAsync(FakeListenerApi.WaitUntilAsync(() => _api.Acks.Any(ack => ack.DeliveryId == "dlv_otra"),
+            "La entrega del otro evento nunca se acusó."));
+
+        Assert.True(started.Elapsed < TimeSpan.FromSeconds(2),
+            $"El long-polling esperó a la cadena del mismo evento ({started.Elapsed.TotalSeconds:0.0} s).");
+        await ExpectAsync(FakeListenerApi.WaitUntilAsync(() => Error.Contains("dlv_c25"), "dlv_c25 nunca se descartó."));
+        var forwarded = _receiver.Requests.Count(request => request.Headers["webhook-id"] == "evt_0001");
+        Assert.InRange(forwarded, 1, 6);
+        Assert.Equal(forwarded, _api.Acks.Count(ack => ack.DeliveryId.StartsWith("dlv_c", StringComparison.Ordinal)));
+        Assert.Contains("La entrega dlv_c25 (evt_0001) venció antes de reenviarse; la API la cerró sin acuse.", Error);
+        Assert.False(_run!.IsCompleted, "listen terminó.");
+    }
+
+    [Fact]
+    public async Task Deliveries_of_the_same_event_reach_the_receiver_in_arrival_order()
+    {
+        var releaseFirst = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _api.Deliver(
+            new FakeDelivery("dlv_0001", "evt_0001", "invoice.canceled", Body: """{"id":"evt_0001","type":"invoice.canceled","n":1}"""),
+            new FakeDelivery("dlv_0002", "evt_0001", "invoice.canceled", Body: """{"id":"evt_0001","type":"invoice.canceled","n":2}"""));
+        _receiver = await FakeReceiver.StartAsync(async (request, aborted) =>
+        {
+            if (Encoding.UTF8.GetString(request.Body).Contains("\"n\":1", StringComparison.Ordinal))
+            {
+                await releaseFirst.Task.WaitAsync(aborted);
+            }
+
+            return StatusCodes.Status200OK;
+        });
+
+        StartListen("--forward-to", _receiver.Url.ToString());
+        await ExpectAsync(_receiver.WaitForRequestsAsync(1));
+        await Task.Delay(300);
+
+        Assert.Single(_receiver.Requests);
+        releaseFirst.SetResult();
+        await ExpectAsync(_receiver.WaitForRequestsAsync(2));
+        Assert.Equal(["\"n\":1", "\"n\":2"], _receiver.Requests.Select(request => Encoding.UTF8.GetString(request.Body)[^6..^1]));
+    }
+
+    [Fact]
+    public async Task A_409_while_reopening_is_retried_with_backoff_instead_of_exiting()
+    {
+        _api.FailPoll(StatusCodes.Status410Gone, "La sesión de fiscalapi listen caducó; vuelve a abrirla.")
+            .FailOpen(StatusCodes.Status409Conflict, "Otro cambio a los endpoints de webhook está en curso; intenta de nuevo.")
+            .Deliver(new FakeDelivery("dlv_0001", "evt_0001", "invoice.canceled"));
+
+        StartListen();
+        await ExpectAsync(_api.WaitForAcksAsync(1));
+
+        Assert.Equal(3, _api.Opens.Count);
+        Assert.Equal(FakeListenerApi.SessionId(2), Assert.Single(_api.Acks).SessionId);
+        Assert.Matches(@"No se pudo reabrir la sesión de escucha \(Otro cambio a los endpoints de webhook está en curso; " +
+                       @"intenta de nuevo\); reintentando en \d+(\.\d)? s\.", Error);
+        Assert.False(_run!.IsCompleted, "listen terminó por el candado de la apertura.");
+    }
+
+    [Fact]
+    public async Task A_410_after_another_without_a_successful_poll_waits_before_reopening()
+    {
+        _timings = FastTimings with
+        {
+            Reconnect = new ExponentialBackoff(TimeSpan.FromMilliseconds(400), TimeSpan.FromMilliseconds(400))
+        };
+        const string expired = "La sesión de fiscalapi listen caducó; vuelve a abrirla.";
+        _api.FailPoll(StatusCodes.Status410Gone, expired)
+            .FailPoll(StatusCodes.Status410Gone, expired)
+            .Deliver(new FakeDelivery("dlv_0001", "evt_0001", "invoice.canceled"));
+
+        StartListen();
+        await ExpectAsync(_api.WaitForAcksAsync(1));
+
+        var opens = _api.OpenTimes.ToArray();
+        Assert.Equal(3, opens.Length);
+        // El primer 410 reabre de inmediato; el segundo seguido espera el backoff (equal jitter: al menos 200 ms).
+        Assert.True(opens[2] - opens[1] >= TimeSpan.FromMilliseconds(190),
+            $"Reabrió a los {(opens[2] - opens[1]).TotalMilliseconds:0} ms.");
+    }
+
+    [Theory]
+    [InlineData("HTTP/1.1 700 Fuera de rango")]
+    [InlineData("HTTP/1.1 999 Fuera de rango")]
+    public async Task A_receiver_status_outside_100_599_is_acked_as_an_invalid_response(string statusLine)
+    {
+        _api.Deliver(new FakeDelivery("dlv_0001", "evt_0001", "invoice.canceled"));
+        using var receiver = new RawHttpReceiver(statusLine);
+
+        StartListen("--forward-to", receiver.Url.ToString());
+        await ExpectAsync(_api.WaitForAcksAsync(1));
+
+        var ack = Assert.Single(_api.Acks);
+        Assert.Equal("InvalidResponse", ack.Error);
+        Assert.Null(ack.StatusCode);
+        Assert.Equal(1, receiver.Requests);
+        Assert.Matches(EventLine("invoice.canceled", "evt_0001", suffix: " [error: InvalidResponse]"), Out);
+    }
+
+    [Fact]
+    public async Task A_body_that_is_not_the_envelope_without_webhook_id_is_still_shown_and_acked()
+    {
+        _api.Deliver(new FakeDelivery("dlv_0001", "evt_0001", "invoice.canceled", Body: "esto no es el sobre", WithoutEventIdHeader: true))
+            .Deliver(new FakeDelivery("dlv_0002", "evt_0002", "invoice.created"));
+
+        StartListen();
+        await ExpectAsync(_api.WaitForAcksAsync(2));
+
+        Assert.Matches(EventLine("?", "?", suffix: ""), Out);
+        Assert.Matches(EventLine("invoice.created", "evt_0002", suffix: ""), Out);
+        Assert.Equal(200, _api.Acks.Single(ack => ack.DeliveryId == "dlv_0001").StatusCode);
+        Assert.False(_run!.IsCompleted, "listen terminó por un cuerpo inesperado.");
+    }
+
+    [Fact]
+    public async Task A_body_that_is_not_json_keeps_the_header_id_and_json_mode_omits_the_event()
+    {
+        _api.Deliver(new FakeDelivery("dlv_0001", "evt_0001", "invoice.canceled", Body: "esto no es el sobre"));
+
+        StartListen("--json");
+        await ExpectAsync(_api.WaitForAcksAsync(1));
+
+        var record = JsonNode.Parse(Out)!.AsObject();
+        Assert.Equal("evt_0001", record["eventId"]!.GetValue<string>());
+        Assert.Equal("?", record["type"]!.GetValue<string>());
+        Assert.False(record.ContainsKey("event"), "Un cuerpo que no es JSON no va como event.");
+    }
+
+    [Fact]
+    public async Task Ctrl_c_sends_the_pending_acks_of_results_already_obtained_and_exits_130()
+    {
+        _api.HoldAck("dlv_0001").Deliver(new FakeDelivery("dlv_0001", "evt_0001", "invoice.canceled"));
+        StartListen();
+        await ExpectAsync(_api.WaitForAcksAsync(1));
+
+        Assert.Equal(ExitCodes.Cancelled, await PressCtrlCAsync());
+
+        Assert.Equal(2, _api.Acks.Count);
+        Assert.All(_api.Acks, ack =>
+            Assert.Equal(("dlv_0001", 200, FakeListenerApi.SessionId(1)), (ack.DeliveryId, ack.StatusCode, ack.SessionId)));
+    }
+
+    [Fact]
+    public async Task Ctrl_c_gives_the_pending_acks_only_a_short_deadline()
+    {
+        _timings = FastTimings with { ShutdownAckTimeout = TimeSpan.FromMilliseconds(300) };
+        _api.HoldAck("dlv_0001", times: 2).Deliver(new FakeDelivery("dlv_0001", "evt_0001", "invoice.canceled"));
+        StartListen();
+        await ExpectAsync(_api.WaitForAcksAsync(1));
+        var pressed = Stopwatch.StartNew();
+
+        Assert.Equal(ExitCodes.Cancelled, await PressCtrlCAsync());
+
+        Assert.True(pressed.Elapsed < TimeSpan.FromSeconds(3), $"Ctrl+C tardó {pressed.Elapsed.TotalSeconds:0.0} s.");
+        Assert.Equal(2, _api.Acks.Count);
+    }
+
+    [Fact]
+    public async Task Ack_retries_stop_when_the_lease_expires()
+    {
+        _timings = FastTimings with { DeliveryLease = TimeSpan.FromMilliseconds(500) };
+        _api.RejectAck("dlv_0001", StatusCodes.Status503ServiceUnavailable, "Servicio no disponible", times: 1000)
+            .Deliver(new FakeDelivery("dlv_0001", "evt_0001", "invoice.canceled"));
+
+        StartListen();
+        await ExpectAsync(FakeListenerApi.WaitUntilAsync(
+            () => Error.Contains("No se registró el acuse de la entrega dlv_0001: Servicio no disponible"),
+            "El acuse nunca dejó de reintentarse."));
+
+        var attempts = _api.Acks.Count;
+        Assert.InRange(attempts, 2, 60);
+        await Task.Delay(200);
+        Assert.Equal(attempts, _api.Acks.Count);
+    }
+
+    [Theory]
+    [InlineData(StatusCodes.Status401Unauthorized, "Invalid API KEY")]
+    [InlineData(StatusCodes.Status403Forbidden, "No tienes permiso para esta operación.")]
+    [InlineData(StatusCodes.Status404NotFound, "No se encontró el recurso wh_listener_0001.")]
+    public async Task A_4xx_on_the_long_polling_exits_1(int status, string message)
+    {
+        _api.FailPoll(status, message);
+
+        StartListen();
+
+        Assert.Equal(ExitCodes.Failure, await ExitCodeAsync());
+        Assert.Contains($"Error: {message}", Error);
+        Assert.Single(_api.Opens);
+    }
+
     [Theory]
     [InlineData("--forward-to|localhost:3000/webhooks", "--forward-to debe ser una URL absoluta http o https")]
     [InlineData("--forward-to|ftp://localhost/webhooks", "--forward-to debe ser una URL absoluta http o https")]
@@ -572,6 +795,12 @@ public sealed class ListenCommandTests : IAsyncLifetime
     [InlineData("--forward-to|http://localhost:3000|--headers|X Malo:1", "--headers trae un header que HTTP no admite: 'X Malo'")]
     [InlineData("--headers|X-Origen:cli", "--headers solo aplica con --forward-to.")]
     [InlineData("--skip-verify", "--skip-verify solo aplica con --forward-to.")]
+    [InlineData("--events|invoice.canceled|--events|invoice.created", "'--events'")]
+    [InlineData("--forward-to|http://localhost:3000|--headers|X-A:1|--headers|X-B:2", "'--headers'")]
+    [InlineData("--forward-to|http://localhost:3000|--forward-to|http://localhost:3001", "'--forward-to'")]
+    [InlineData("--print-secret|--forward-to|http://localhost:3000", "--print-secret no se combina con --forward-to.")]
+    [InlineData("--print-secret|--forward-to|http://localhost:3000|--headers|X-A:1", "--print-secret no se combina con --headers.")]
+    [InlineData("--print-secret|--forward-to|http://localhost:3000|--skip-verify", "--print-secret no se combina con --skip-verify.")]
     public async Task Invalid_options_are_usage_errors_without_calling_the_api(string options, string error)
     {
         StartListen(options.Split('|'));
@@ -610,13 +839,6 @@ public sealed class ListenCommandTests : IAsyncLifetime
     {
         await _ctrlC.CancelAsync();
         return await ExitCodeAsync();
-    }
-
-    private static int FreePort()
-    {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        return ((IPEndPoint)listener.LocalEndpoint).Port;
     }
 
     private void StartListen(params string[] options) => StartListen(_api.BaseAddress, options);

@@ -14,6 +14,7 @@ public sealed class HttpForwardTarget : IDeliveryTarget, IDisposable
     private static readonly MediaTypeHeaderValue JsonContentType = new("application/json") { CharSet = "utf-8" };
 
     private const string TimeoutError = "Timeout";
+    private const string InvalidResponseError = "InvalidResponse";
 
     private readonly HttpClient _client;
     private readonly Uri _forwardTo;
@@ -66,7 +67,7 @@ public sealed class HttpForwardTarget : IDeliveryTarget, IDisposable
             using var request = CreateRequest(delivery);
             using var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
                 .ConfigureAwait(false);
-            return DeliveryOutcome.Responded((int)response.StatusCode, ElapsedMs(startedAt));
+            return Outcome((int)response.StatusCode, ElapsedMs(startedAt));
         }
         // El timeout de HttpClient llega como cancelación sin que nadie haya cancelado el token de quien llama.
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -95,13 +96,20 @@ public sealed class HttpForwardTarget : IDeliveryTarget, IDisposable
         return request;
     }
 
+    // HttpClient acepta cualquier código de tres cifras; la API solo acusa 100..599 (AckWebhookCliDeliveryCommandValidator).
+    // Otro código no es HTTP válido, como lo clasifica el envío de fapi-back.
+    private static DeliveryOutcome Outcome(int statusCode, int latencyMs) =>
+        statusCode is >= 100 and <= 599
+            ? DeliveryOutcome.Responded(statusCode, latencyMs)
+            : DeliveryOutcome.Failed(InvalidResponseError, latencyMs);
+
     // Los mismos nombres que WebhookAttemptError de fapi-back: el log de entregas de la escucha se lee igual que el de un
     // endpoint con URL.
     private static string Classify(HttpRequestError error) => error switch
     {
         HttpRequestError.SecureConnectionError => "TlsFailed",
         HttpRequestError.InvalidResponse or HttpRequestError.ResponseEnded or HttpRequestError.ConfigurationLimitExceeded
-            => "InvalidResponse",
+            => InvalidResponseError,
         _ => "ConnectionFailed"
     };
 

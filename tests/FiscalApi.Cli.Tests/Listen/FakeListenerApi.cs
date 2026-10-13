@@ -29,7 +29,10 @@ internal sealed class FakeListenerApi : IAsyncDisposable
     private readonly WebApplication _app;
     private readonly ConcurrentQueue<Func<HttpContext, Task>> _polls = new();
     private readonly ConcurrentDictionary<string, ConcurrentQueue<(int Status, string Message)>> _ackRejections = new();
+    private readonly ConcurrentQueue<(int Status, string Message)> _openFailures = new();
+    private readonly ConcurrentDictionary<string, int> _heldAcks = new();
     private readonly ConcurrentQueue<JsonObject> _opens = new();
+    private readonly ConcurrentQueue<DateTime> _openTimes = new();
     private readonly ConcurrentQueue<RecordedPoll> _pollsReceived = new();
     private readonly ConcurrentQueue<RecordedAck> _acks = new();
     private int _sessions;
@@ -39,6 +42,9 @@ internal sealed class FakeListenerApi : IAsyncDisposable
     public Uri BaseAddress { get; private set; } = null!;
 
     public IReadOnlyCollection<JsonObject> Opens => _opens;
+
+    /// <summary>Cuándo llegó cada apertura, incluidas las rechazadas.</summary>
+    public IReadOnlyCollection<DateTime> OpenTimes => _openTimes;
 
     public IReadOnlyCollection<RecordedPoll> PollsReceived => _pollsReceived;
 
@@ -98,6 +104,20 @@ internal sealed class FakeListenerApi : IAsyncDisposable
         return this;
     }
 
+    /// <summary>La próxima apertura responde un error (después de la primera, que la prueba no puede rechazar).</summary>
+    public FakeListenerApi FailOpen(int status, string message)
+    {
+        _openFailures.Enqueue((status, message));
+        return this;
+    }
+
+    /// <summary>Los próximos <paramref name="times"/> acuses de esta entrega no responden hasta que el CLI se va.</summary>
+    public FakeListenerApi HoldAck(string deliveryId, int times = 1)
+    {
+        _heldAcks[deliveryId] = times;
+        return this;
+    }
+
     /// <summary>Los próximos <paramref name="times"/> acuses de esta entrega responden un error en lugar de 200.</summary>
     public FakeListenerApi RejectAck(string deliveryId, int status, string message, int times = 1)
     {
@@ -146,6 +166,14 @@ internal sealed class FakeListenerApi : IAsyncDisposable
     private async Task OpenAsync(HttpContext context)
     {
         _opens.Enqueue((await JsonNode.ParseAsync(context.Request.Body))!.AsObject());
+        _openTimes.Enqueue(DateTime.UtcNow);
+        // La primera apertura siempre sale bien: las fallas encoladas son para las reaperturas.
+        if (_opens.Count > 1 && _openFailures.TryDequeue(out var failure))
+        {
+            await WriteErrorAsync(context, failure.Status, failure.Message);
+            return;
+        }
+
         var session = Interlocked.Increment(ref _sessions);
         await WriteJsonAsync(context, StatusCodes.Status200OK, new JsonObject
         {
@@ -186,6 +214,19 @@ internal sealed class FakeListenerApi : IAsyncDisposable
     {
         var body = (await JsonNode.ParseAsync(context.Request.Body))!.AsObject();
         _acks.Enqueue(new RecordedAck(id, deliveryId, body));
+        if (_heldAcks.TryGetValue(deliveryId, out var held) && held > 0)
+        {
+            _heldAcks[deliveryId] = held - 1;
+            try
+            {
+                await Task.Delay(Timeout.Infinite, context.RequestAborted);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+        }
+
         if (_ackRejections.TryGetValue(deliveryId, out var rejections) && rejections.TryDequeue(out var rejection))
         {
             await WriteErrorAsync(context, rejection.Status, rejection.Message);
@@ -228,7 +269,12 @@ internal sealed class FakeListenerApi : IAsyncDisposable
 
 /// <summary>Una entrega como la responde el long-polling: deliveryId, los headers firmados y el cuerpo tal cual.</summary>
 internal sealed record FakeDelivery(
-    string DeliveryId, string EventId, string Type, string? Body = null, string? SignatureHeader = null)
+    string DeliveryId,
+    string EventId,
+    string Type,
+    string? Body = null,
+    string? SignatureHeader = null,
+    bool WithoutEventIdHeader = false)
 {
     public const string Timestamp = "1791900000";
 
@@ -242,12 +288,24 @@ internal sealed record FakeDelivery(
          "data":{"relatedObject":{"id":"inv_1","type":"invoice","url":"/api/v4/invoices/inv_1"},"status":"X","previousStatus":"V"}}
         """;
 
-    public IReadOnlyDictionary<string, string> Headers => new Dictionary<string, string>
+    public IReadOnlyDictionary<string, string> Headers
     {
-        ["webhook-id"] = EventId,
-        ["webhook-timestamp"] = Timestamp,
-        ["webhook-signature"] = Signature
-    };
+        get
+        {
+            var headers = new Dictionary<string, string>
+            {
+                ["webhook-id"] = EventId,
+                ["webhook-timestamp"] = Timestamp,
+                ["webhook-signature"] = Signature
+            };
+            if (WithoutEventIdHeader)
+            {
+                headers.Remove("webhook-id");
+            }
+
+            return headers;
+        }
+    }
 
     public JsonObject ToJson() => new()
     {

@@ -10,7 +10,7 @@ public sealed class TextListenOutput(CliConsole console, bool verbose, TimeProvi
 
     public override void WriteDelivery(CliDelivery delivery, DeliveryOutcome outcome)
     {
-        var summary = WebhookEventSummary.Parse(delivery.Body);
+        var summary = WebhookEventSummary.Of(delivery);
         var time = TimeProvider.GetLocalNow().ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         WriteData($"{time}  --> {summary.Type} [{summary.Id}]{Result(outcome)}");
     }
@@ -18,8 +18,8 @@ public sealed class TextListenOutput(CliConsole console, bool verbose, TimeProvi
     // Sin --forward-to no hay resultado que mostrar: la terminal es el destino.
     private static string Result(DeliveryOutcome outcome) => outcome switch
     {
+        { Forwarded: false } => "",
         { StatusCode: { } statusCode } => $" [{statusCode}]",
-        { Error: { } error } => $" [error: {error}]",
-        _ => ""
+        _ => $" [error: {outcome.Error}]"
     };
 }

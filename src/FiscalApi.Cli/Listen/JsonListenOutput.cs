@@ -13,15 +13,17 @@ public sealed class JsonListenOutput(CliConsole console, bool verbose, TimeProvi
 
     public override void WriteDelivery(CliDelivery delivery, DeliveryOutcome outcome)
     {
-        var summary = WebhookEventSummary.Parse(delivery.Body);
+        var summary = WebhookEventSummary.Of(delivery);
+        // Sin --forward-to no hay resultado del receptor que mostrar.
+        var forwarded = outcome.Forwarded ? outcome : null;
         var record = new ListenEventRecord(
             TimeProvider.GetLocalNow(),
             delivery.DeliveryId,
             summary.Id,
             summary.Type,
-            outcome.StatusCode,
-            outcome.LatencyMs,
-            outcome.Error,
+            forwarded?.StatusCode,
+            forwarded?.LatencyMs,
+            forwarded?.Error,
             summary.Envelope);
         WriteData(JsonSerializer.Serialize(record, FiscalApiJsonContext.Default.ListenEventRecord));
     }
@@ -35,7 +37,9 @@ public sealed record ListenSecretRecord(string Secret);
 /// statusCode o error, como su acuse.
 /// </summary>
 /// <param name="Time">Cuando terminó el reenvío, en la hora local con su desfase.</param>
-/// <param name="Event">El sobre del evento tal como llegó (D-04).</param>
+/// <param name="EventId">El de <c>webhook-id</c>, o "?" si no vino.</param>
+/// <param name="Type">El del sobre, o "?" si el cuerpo no es el sobre de D-04.</param>
+/// <param name="Event">El sobre del evento tal como llegó (D-04); se omite si el cuerpo no es JSON.</param>
 public sealed record ListenEventRecord(
     DateTimeOffset Time,
     string DeliveryId,
@@ -44,4 +48,4 @@ public sealed record ListenEventRecord(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? StatusCode,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? LatencyMs,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Error,
-    JsonElement Event);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] JsonElement? Event);

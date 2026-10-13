@@ -24,6 +24,7 @@ public sealed class ListenCommand : Command
     {
         Description = "Tipos de evento separados por coma (p. ej. invoice.canceled,invoice.created). Por omisión, todos.",
         HelpName = "tipos",
+        Arity = ArgumentArity.ExactlyOne,
         CustomParser = ParseEvents,
         DefaultValueFactory = _ => ["*"]
     };
@@ -32,6 +33,7 @@ public sealed class ListenCommand : Command
     {
         Description = "Headers extra para cada reenvío, como \"Nombre:Valor,Nombre:Valor\".",
         HelpName = "headers",
+        Arity = ArgumentArity.ExactlyOne,
         CustomParser = ParseHeaders,
         DefaultValueFactory = _ => []
     };
@@ -43,7 +45,8 @@ public sealed class ListenCommand : Command
 
     private readonly Option<bool> _printSecret = new("--print-secret")
     {
-        Description = "Imprime solo el secreto de firma de la escucha y termina."
+        Description = "Imprime solo el secreto de firma de la escucha y termina. Abre una sesión: un listen en curso " +
+                      "con la misma API key termina."
     };
 
     private readonly GlobalOptions _globalOptions;
@@ -71,6 +74,7 @@ public sealed class ListenCommand : Command
         Options.Add(_skipVerify);
         Options.Add(_printSecret);
         Validators.Add(RequireForwardToFor);
+        Validators.Add(RejectForwardingWithPrintSecret);
         SetAction(RunAsync);
     }
 
@@ -91,7 +95,7 @@ public sealed class ListenCommand : Command
 
         using var forwarder = CreateForwarder(parseResult);
         var target = forwarder ?? (IDeliveryTarget)DisplayOnlyTarget.Instance;
-        var processor = new DeliveryProcessor(target, api, output, _timings.Reconnect, _timeProvider);
+        var processor = new DeliveryProcessor(target, api, output, _timings, _timeProvider);
         await new ListenLoop(api, enabledEvents, processor, output, _timings, _timeProvider).RunAsync(cancellationToken);
         throw new UnreachableException("El bucle de listen solo termina con una excepción.");
     }
@@ -116,6 +120,24 @@ public sealed class ListenCommand : Command
             if (result.GetResult(option) is { Implicit: false })
             {
                 result.AddError($"{option.Name} solo aplica con --forward-to.");
+            }
+        }
+    }
+
+    // --print-secret abre la sesión, imprime el secreto y termina: nunca reenvía, así que las opciones del reenvío no
+    // tendrían efecto.
+    private void RejectForwardingWithPrintSecret(CommandResult result)
+    {
+        if (result.GetResult(_printSecret) is not { Implicit: false })
+        {
+            return;
+        }
+
+        foreach (var option in new Option[] { _forwardTo, _headers, _skipVerify })
+        {
+            if (result.GetResult(option) is { Implicit: false })
+            {
+                result.AddError($"--print-secret no se combina con {option.Name}.");
             }
         }
     }

@@ -29,10 +29,14 @@ public sealed class CliListenerSession
 /// <param name="Body">El sobre del evento: los mismos caracteres que se firmaron.</param>
 public sealed record CliDelivery(string DeliveryId, IReadOnlyDictionary<string, string> Headers, string Body)
 {
-    /// <summary>El id del evento, que la API manda en <c>webhook-id</c> (D-02): ordena las entregas del mismo evento.</summary>
-    public string EventId => Headers.TryGetValue(WebhookHeaderNames.Id, out var eventId)
-        ? eventId
-        : throw new InvalidOperationException($"La entrega {DeliveryId} llegó sin el header {WebhookHeaderNames.Id}.");
+    /// <summary>El id del evento que la API manda en <c>webhook-id</c> (D-02); nulo si no vino.</summary>
+    public string? EventId => Headers.GetValueOrDefault(WebhookHeaderNames.Id);
+
+    /// <summary>
+    /// Ordena las entregas del mismo evento. Sin <c>webhook-id</c> (un defecto del contrato) la entrega no espera a ninguna
+    /// otra, pero igual se muestra y se acusa.
+    /// </summary>
+    public string OrderingKey => EventId ?? DeliveryId;
 }
 
 /// <summary>

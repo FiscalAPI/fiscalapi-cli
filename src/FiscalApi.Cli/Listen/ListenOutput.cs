@@ -34,13 +34,20 @@ public abstract class ListenOutput(CliConsole console, bool verbose, TimeProvide
         WriteDiagnostic($"Listo. Tu secreto de firma es {session.Secret} (escucha {session.Id})");
 
     public void WriteConnectionLost(CliException failure, TimeSpan retryIn) =>
-        WriteDiagnostic(
-            $"Se perdió la conexión con FiscalAPI ({failure.Message.TrimEnd('.')}); reintentando en " +
-            $"{retryIn.TotalSeconds.ToString("0.#", CultureInfo.InvariantCulture)} s.");
+        WriteDiagnostic($"Se perdió la conexión con FiscalAPI ({Detail(failure)}); reintentando en {Seconds(retryIn)} s.");
 
     public void WriteReconnected() => WriteDiagnostic("Conexión con FiscalAPI restablecida.");
 
     public void WriteSessionExpired() => WriteDiagnostic("La sesión de fiscalapi listen caducó; se abre una nueva.");
+
+    public void WriteReopenRetry(CliException failure, TimeSpan retryIn) =>
+        WriteDiagnostic($"No se pudo reabrir la sesión de escucha ({Detail(failure)}); reintentando en {Seconds(retryIn)} s.");
+
+    /// <summary>Una entrega que llegó a su turno con el lease vencido: la API ya la cerró y no se reenvía.</summary>
+    public void WriteExpired(CliDelivery delivery) =>
+        WriteDiagnostic(
+            $"La entrega {delivery.DeliveryId} ({delivery.EventId ?? WebhookEventSummary.Unknown}) venció antes de " +
+            "reenviarse; la API la cerró sin acuse.");
 
     /// <param name="deliveryId">La entrega cuyo acuse no quedó registrado.</param>
     /// <param name="failure">Lo que respondió la API o por qué no respondió.</param>
@@ -54,6 +61,10 @@ public abstract class ListenOutput(CliConsole console, bool verbose, TimeProvide
     }
 
     protected void WriteData(string line) => WriteLine(console.Out, line);
+
+    private static string Detail(CliException failure) => failure.Message.TrimEnd('.');
+
+    private static string Seconds(TimeSpan delay) => delay.TotalSeconds.ToString("0.#", CultureInfo.InvariantCulture);
 
     private void WriteDiagnostic(string line) => WriteLine(console.Error, line);
 

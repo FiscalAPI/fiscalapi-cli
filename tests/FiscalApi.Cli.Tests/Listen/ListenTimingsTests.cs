@@ -17,6 +17,8 @@ public sealed class ListenTimingsTests
         Assert.Equal(TimeSpan.FromSeconds(30), timings.Reconnect.MaxDelay);
         // WebhookConsts.DeliveryLease de fapi-back: después, la API cierra la entrega sin acuse.
         Assert.Equal(TimeSpan.FromMinutes(2), timings.DeliveryLease);
+        // Al salir con Ctrl+C, el único intento de acusar lo que ya tenía resultado.
+        Assert.Equal(TimeSpan.FromSeconds(2), timings.ShutdownAckTimeout);
     }
 
     [Fact]

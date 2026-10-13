@@ -27,7 +27,10 @@ public sealed class ListenLoop(
         output.WriteReady(session);
 
         await using var dispatcher = new DeliveryDispatcher(timings.MaxInFlightDeliveries, cancellationToken);
-        var failedAttempts = 0;
+        // Cada cuenta se reinicia con el primer long-polling exitoso.
+        var connectionFailures = 0;
+        var busyReopens = 0;
+        var expirationsInARow = 0;
         while (true)
         {
             IReadOnlyList<CliDelivery> deliveries;
@@ -38,39 +41,53 @@ public sealed class ListenLoop(
                 deliveries = await api.PollAsync(session, cancellationToken).ConfigureAwait(false);
             }
             // 410: la sesión caducó (más de 60 s sin long-polling, p. ej. tras un corte). Se reabre sin terminar; lo que
-            // pasó mientras tanto no llega (D-26) y se recupera con events resend. Un 409 (otra sesión la reemplazó) no es
-            // transitorio y termina la escucha con el texto de la API.
+            // pasó mientras tanto no llega (D-26) y se recupera con events resend. El primero reabre de inmediato; otro
+            // sin un long-polling exitoso de por medio espera el backoff, para no quedar girando.
             catch (ApiException expired) when (expired.StatusCode == HttpStatusCode.Gone)
             {
                 output.WriteSessionExpired();
                 session = null;
+                if (++expirationsInARow > 1)
+                {
+                    await WaitAsync(timings.Reconnect.Delay(expirationsInARow - 1), cancellationToken).ConfigureAwait(false);
+                }
+
+                continue;
+            }
+            // Con la sesión nula falló la reapertura, no el long-polling: su 409 es el candado de otra apertura de la misma
+            // persona en curso (WebhookEndpointWriteLock de fapi-back) y otro intento lo resuelve. El 409 del long-polling
+            // (otra sesión reemplazó a esta) no entra aquí y termina la escucha con el texto de la API.
+            catch (ApiException busy) when (session is null && busy.StatusCode == HttpStatusCode.Conflict)
+            {
+                var retryIn = timings.Reconnect.Delay(++busyReopens);
+                output.WriteReopenRetry(busy, retryIn);
+                await WaitAsync(retryIn, cancellationToken).ConfigureAwait(false);
                 continue;
             }
             // Una red caída o un 5xx (un deploy de la API) no terminan la escucha: se reintenta con backoff y jitter. Si
             // el corte pasa de 60 s, la sesión caduca y el siguiente long-polling lo dice con un 410.
             catch (CliException failure) when (failure.IsTransient)
             {
-                var retryIn = timings.Reconnect.Delay(++failedAttempts);
+                var retryIn = timings.Reconnect.Delay(++connectionFailures);
                 output.WriteConnectionLost(failure, retryIn);
-                await Task.Delay(retryIn, timeProvider, cancellationToken).ConfigureAwait(false);
+                await WaitAsync(retryIn, cancellationToken).ConfigureAwait(false);
                 continue;
             }
 
-            if (failedAttempts > 0)
+            if (connectionFailures > 0)
             {
                 output.WriteReconnected();
-                failedAttempts = 0;
             }
 
-            await DispatchAsync(dispatcher, session, deliveries, cancellationToken).ConfigureAwait(false);
+            connectionFailures = busyReopens = expirationsInARow = 0;
+            Dispatch(dispatcher, session, deliveries);
         }
     }
 
-    private async Task DispatchAsync(
-        DeliveryDispatcher dispatcher,
-        CliListenerSession session,
-        IReadOnlyList<CliDelivery> deliveries,
-        CancellationToken cancellationToken)
+    private Task WaitAsync(TimeSpan delay, CancellationToken cancellationToken) =>
+        Task.Delay(delay, timeProvider, cancellationToken);
+
+    private void Dispatch(DeliveryDispatcher dispatcher, CliListenerSession session, IReadOnlyList<CliDelivery> deliveries)
     {
         dispatcher.ThrowIfFaulted();
         // El lease corre desde que la API reclamó las entregas, justo antes de responder: se cuenta desde la respuesta.
@@ -78,10 +95,7 @@ public sealed class ListenLoop(
         foreach (var delivery in deliveries)
         {
             var claimed = new ClaimedDelivery(session, delivery, ackDeadline);
-            await dispatcher.EnqueueAsync(
-                delivery.EventId,
-                token => processor.ProcessAsync(claimed, token),
-                cancellationToken).ConfigureAwait(false);
+            dispatcher.Enqueue(delivery.OrderingKey, token => processor.ProcessAsync(claimed, token));
         }
     }
 }

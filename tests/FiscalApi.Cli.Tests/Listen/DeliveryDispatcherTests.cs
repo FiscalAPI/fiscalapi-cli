@@ -18,8 +18,8 @@ public sealed class DeliveryDispatcherTests
         var first = new BlockingWork();
         var second = new BlockingWork();
 
-        await dispatcher.EnqueueAsync("evt_1", first.RunAsync, CancellationToken.None);
-        await dispatcher.EnqueueAsync("evt_2", second.RunAsync, CancellationToken.None);
+        dispatcher.Enqueue("evt_1", first.RunAsync);
+        dispatcher.Enqueue("evt_2", second.RunAsync);
 
         await first.Started.WaitAsync(WaitLimit);
         await second.Started.WaitAsync(WaitLimit);
@@ -34,8 +34,8 @@ public sealed class DeliveryDispatcherTests
         var first = new BlockingWork();
         var second = new BlockingWork();
 
-        await dispatcher.EnqueueAsync("evt_1", first.RunAsync, CancellationToken.None);
-        await dispatcher.EnqueueAsync("evt_1", second.RunAsync, CancellationToken.None);
+        dispatcher.Enqueue("evt_1", first.RunAsync);
+        dispatcher.Enqueue("evt_1", second.RunAsync);
         await first.Started.WaitAsync(WaitLimit);
         await Task.Delay(100);
 
@@ -51,42 +51,81 @@ public sealed class DeliveryDispatcherTests
         await using var dispatcher = new DeliveryDispatcher(maxInFlight: 4, CancellationToken.None);
         var next = new BlockingWork();
 
-        await dispatcher.EnqueueAsync("evt_1", _ => Task.FromException(new InvalidOperationException("defecto")),
-            CancellationToken.None);
-        await dispatcher.EnqueueAsync("evt_1", next.RunAsync, CancellationToken.None);
+        dispatcher.Enqueue("evt_1", _ => Task.FromException(new InvalidOperationException("defecto")));
+        dispatcher.Enqueue("evt_1", next.RunAsync);
 
         await next.Started.WaitAsync(WaitLimit);
         next.Release();
     }
 
     [Fact]
-    public async Task Enqueue_waits_only_while_every_slot_is_busy()
+    public async Task At_most_max_in_flight_deliveries_run_and_enqueue_never_waits()
     {
         await using var dispatcher = new DeliveryDispatcher(maxInFlight: 2, CancellationToken.None);
-        var first = new BlockingWork();
-        var second = new BlockingWork();
-        var third = new BlockingWork();
-        await dispatcher.EnqueueAsync("evt_1", first.RunAsync, CancellationToken.None);
-        await dispatcher.EnqueueAsync("evt_2", second.RunAsync, CancellationToken.None);
+        BlockingWork[] works = [new(), new(), new()];
 
-        var enqueueThird = dispatcher.EnqueueAsync("evt_3", third.RunAsync, CancellationToken.None);
+        for (var i = 0; i < works.Length; i++)
+        {
+            dispatcher.Enqueue($"evt_{i}", works[i].RunAsync);
+        }
+
+        // Cuáles dos toman el cupo primero no está definido; lo que importa es que sean dos.
+        await FakeListenerApi.WaitUntilAsync(() => works.Count(work => work.Started.IsCompleted) == 2, "No corrieron dos.");
         await Task.Delay(100);
+        Assert.Equal(2, works.Count(work => work.Started.IsCompleted));
+        var waiting = works.Single(work => !work.Started.IsCompleted);
+        works.First(work => work.Started.IsCompleted).Release();
+        await waiting.Started.WaitAsync(WaitLimit);
+        foreach (var work in works)
+        {
+            work.Release();
+        }
+    }
 
-        Assert.False(enqueueThird.IsCompleted, "Se aceptó una entrega con el cupo lleno.");
-        first.Release();
-        await enqueueThird.WaitAsync(WaitLimit);
-        await third.Started.WaitAsync(WaitLimit);
-        second.Release();
-        third.Release();
+    [Fact]
+    public async Task A_delivery_waiting_for_its_event_does_not_take_a_slot()
+    {
+        await using var dispatcher = new DeliveryDispatcher(maxInFlight: 2, CancellationToken.None);
+        var running = new BlockingWork();
+        var waitingTurn = new BlockingWork();
+        var otherEvent = new BlockingWork();
+
+        dispatcher.Enqueue("evt_1", running.RunAsync);
+        dispatcher.Enqueue("evt_1", waitingTurn.RunAsync);
+        dispatcher.Enqueue("evt_2", otherEvent.RunAsync);
+
+        await otherEvent.Started.WaitAsync(WaitLimit);
+        Assert.False(waitingTurn.Started.IsCompleted, "La segunda entrega del evento empezó antes de su turno.");
+        running.Release();
+        await waitingTurn.Started.WaitAsync(WaitLimit);
+        waitingTurn.Release();
+        otherEvent.Release();
+    }
+
+    [Fact]
+    public async Task Dispose_skips_the_deliveries_still_waiting_for_their_turn()
+    {
+        var dispatcher = new DeliveryDispatcher(maxInFlight: 2, CancellationToken.None);
+        var running = new BlockingWork();
+        var waitingTurn = new BlockingWork();
+        dispatcher.Enqueue("evt_1", running.RunAsync);
+        dispatcher.Enqueue("evt_1", waitingTurn.RunAsync);
+        await running.Started.WaitAsync(WaitLimit);
+
+        await dispatcher.DisposeAsync().AsTask().WaitAsync(WaitLimit);
+
+        Assert.False(waitingTurn.Started.IsCompleted, "Una entrega en espera de turno corrió después de detener la escucha.");
     }
 
     [Fact]
     public async Task Dispose_cancels_the_work_in_flight_and_waits_for_it()
     {
         var dispatcher = new DeliveryDispatcher(maxInFlight: 2, CancellationToken.None);
+        var started = new TaskCompletionSource();
         var observedCancellation = new TaskCompletionSource();
-        await dispatcher.EnqueueAsync("evt_1", async cancellationToken =>
+        dispatcher.Enqueue("evt_1", async cancellationToken =>
         {
+            started.SetResult();
             try
             {
                 await Task.Delay(Timeout.Infinite, cancellationToken);
@@ -95,7 +134,8 @@ public sealed class DeliveryDispatcherTests
             {
                 observedCancellation.SetResult();
             }
-        }, CancellationToken.None);
+        });
+        await started.Task.WaitAsync(WaitLimit);
 
         await dispatcher.DisposeAsync().AsTask().WaitAsync(WaitLimit);
 
@@ -107,11 +147,11 @@ public sealed class DeliveryDispatcherTests
     {
         await using var dispatcher = new DeliveryDispatcher(maxInFlight: 2, CancellationToken.None);
         var failed = new TaskCompletionSource();
-        await dispatcher.EnqueueAsync("evt_1", _ =>
+        dispatcher.Enqueue("evt_1", _ =>
         {
             failed.SetResult();
             throw new InvalidOperationException("defecto del CLI");
-        }, CancellationToken.None);
+        });
         await failed.Task.WaitAsync(WaitLimit);
 
         var error = await WaitForFaultAsync(dispatcher);
