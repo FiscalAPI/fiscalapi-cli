@@ -16,6 +16,11 @@
     </PackageReference>
   </ItemGroup>
 
+  <!-- Kestrel en proceso: la API falsa y el receptor falso de ListenCommandTests. Nunca se llama a Test ni a Live. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>

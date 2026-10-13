@@ -28,6 +28,9 @@ public sealed class ApiException : CliException
 
     public override int ExitCode => ExitCodes.Failure;
 
+    /// <summary>408, 429 y 5xx (incluido el 502/503 de nginx en un deploy); un 4xx distinto nunca.</summary>
+    public override bool IsTransient => TransientHttpStatus.Is(StatusCode);
+
     /// <summary>El de la respuesta HTTP: el envelope omite <c>httpStatusCode</c> cuando vale el default.</summary>
     public HttpStatusCode StatusCode { get; }
 

@@ -1,5 +1,3 @@
-using System.Net;
-
 namespace FiscalApi.Cli.Http;
 
 /// <summary>
@@ -9,21 +7,14 @@ namespace FiscalApi.Cli.Http;
 /// </summary>
 public sealed class RetryPolicy
 {
-    // Con más de 2^30 veces la base cualquier espera ya superó el máximo; el tope evita desbordar el cálculo.
-    private const int MaxBackoffExponent = 30;
-
-    private readonly TimeSpan _baseDelay;
-    private readonly TimeSpan _maxDelay;
+    private readonly ExponentialBackoff _backoff;
     private readonly TimeProvider _timeProvider;
 
     public RetryPolicy(int maxAttempts, TimeSpan baseDelay, TimeSpan maxDelay, TimeProvider timeProvider)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(maxAttempts, 1);
-        ArgumentOutOfRangeException.ThrowIfLessThan(baseDelay, TimeSpan.Zero);
-        ArgumentOutOfRangeException.ThrowIfLessThan(maxDelay, baseDelay);
         MaxAttempts = maxAttempts;
-        _baseDelay = baseDelay;
-        _maxDelay = maxDelay;
+        _backoff = new ExponentialBackoff(baseDelay, maxDelay);
         _timeProvider = timeProvider;
     }
 
@@ -47,11 +38,11 @@ public sealed class RetryPolicy
             }
             catch (HttpRequestException exception) when (attempt < MaxAttempts && IsTransient(exception.HttpRequestError))
             {
-                await Task.Delay(Backoff(attempt), _timeProvider, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(_backoff.Delay(attempt), _timeProvider, cancellationToken).ConfigureAwait(false);
                 continue;
             }
 
-            if (attempt == MaxAttempts || !IsTransient(response.StatusCode) || DelayBeforeRetry(attempt, response) is not { } delay)
+            if (attempt == MaxAttempts || !TransientHttpStatus.Is(response.StatusCode) || DelayBeforeRetry(attempt, response) is not { } delay)
             {
                 return response;
             }
@@ -60,9 +51,6 @@ public sealed class RetryPolicy
             await Task.Delay(delay, _timeProvider, cancellationToken).ConfigureAwait(false);
         }
     }
-
-    private static bool IsTransient(HttpStatusCode statusCode) =>
-        statusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests || (int)statusCode >= 500;
 
     // Solo fallas que otro intento puede resolver. Un error de TLS o de DNS (casi siempre un --api-base mal
     // escrito) se repetiría igual, y solo retrasaría el mensaje.
@@ -75,8 +63,8 @@ public sealed class RetryPolicy
     /// </summary>
     private TimeSpan? DelayBeforeRetry(int attempt, HttpResponseMessage response)
     {
-        var delay = RetryAfter(response) ?? Backoff(attempt);
-        return delay <= _maxDelay ? delay : null;
+        var delay = RetryAfter(response) ?? _backoff.Delay(attempt);
+        return delay <= _backoff.MaxDelay ? delay : null;
     }
 
     private TimeSpan? RetryAfter(HttpResponseMessage response) => response.Headers.RetryAfter switch
@@ -85,14 +73,6 @@ public sealed class RetryPolicy
         { Date: { } date } => Max(date - _timeProvider.GetUtcNow(), TimeSpan.Zero),
         _ => null
     };
-
-    // "Equal jitter": la mitad fija y la otra mitad aleatoria, para que varios CLI no reintenten al unísono.
-    private TimeSpan Backoff(int attempt)
-    {
-        var exponent = Math.Min(attempt - 1, MaxBackoffExponent);
-        var exponential = TimeSpan.FromTicks((long)Math.Min(_baseDelay.Ticks * Math.Pow(2, exponent), _maxDelay.Ticks));
-        return exponential / 2 + exponential / 2 * Random.Shared.NextDouble();
-    }
 
     private static TimeSpan Max(TimeSpan a, TimeSpan b) => a > b ? a : b;
 }

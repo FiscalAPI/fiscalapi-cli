@@ -6,6 +6,7 @@ using FiscalApi.Cli.Commands;
 using FiscalApi.Cli.Credentials;
 using FiscalApi.Cli.Http;
 using FiscalApi.Cli.Input;
+using FiscalApi.Cli.Listen;
 
 // UTF-8 sin BOM: en Windows la consola usa la página de códigos OEM, que rompe los acentos de los mensajes
 // de la API y el JSON que se redirige a otra herramienta. En Windows esto cambia la página de códigos de la
@@ -46,7 +47,8 @@ try
     IReadOnlyList<Command> commands =
     [
         new LoginCommand(globalOptions, apiClients, credentialStore, secretReader, console),
-        new LogoutCommand(globalOptions, credentialStore, console)
+        new LogoutCommand(globalOptions, credentialStore, console),
+        new ListenCommand(globalOptions, apiClients, console, TimeProvider.System, ListenTimings.Default)
     ];
 
     var application = new CliApplication(globalOptions, commands, console);

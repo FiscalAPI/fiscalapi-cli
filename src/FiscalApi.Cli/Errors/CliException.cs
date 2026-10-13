@@ -9,5 +9,8 @@ public abstract class CliException(string message, Exception? innerException = n
 {
     public abstract int ExitCode { get; }
 
+    /// <summary>Si otro intento podría salir bien: lo consulta la reconexión de <c>listen</c>.</summary>
+    public virtual bool IsTransient => false;
+
     public virtual void WriteTo(TextWriter error) => error.WriteLine($"Error: {Message}");
 }
