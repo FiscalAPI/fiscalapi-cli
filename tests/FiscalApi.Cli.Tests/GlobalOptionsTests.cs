@@ -63,6 +63,31 @@ public sealed class GlobalOptionsTests
         Assert.Contains(parseResult.Errors, error => error.Message.Contains("--api-base"));
     }
 
+    [Theory]
+    [InlineData("http://localhost:5000")]
+    [InlineData("http://127.0.0.1:5000")]
+    [InlineData("http://[::1]:5000")]
+    public void Api_base_with_http_is_allowed_for_loopback(string apiBase)
+    {
+        var settings = Parse("--api-base", apiBase);
+
+        Assert.Equal(Uri.UriSchemeHttp, settings.Environment.BaseAddress.Scheme);
+    }
+
+    [Theory]
+    [InlineData("http://test.fiscalapi.com")]
+    [InlineData("http://192.168.1.20:5000")]
+    [InlineData("http://localhost.example.test:5000")]
+    public void Api_base_with_http_to_another_host_is_a_usage_error(string apiBase)
+    {
+        var parseResult = ParseWith(new GlobalOptions(), "--api-base", apiBase);
+
+        var error = Assert.Single(parseResult.Errors);
+        Assert.Contains("--api-base", error.Message);
+        Assert.Contains("https", error.Message);
+        Assert.Contains("localhost", error.Message);
+    }
+
     [Fact]
     public void Json_and_verbose_are_off_by_default()
     {

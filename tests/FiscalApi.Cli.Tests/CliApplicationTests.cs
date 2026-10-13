@@ -84,6 +84,15 @@ public sealed class CliApplicationTests
     }
 
     [Fact]
+    public async Task Api_base_with_http_outside_loopback_exits_2_so_keys_never_travel_without_tls()
+    {
+        var exitCode = await RunAsync(["--api-base", "http://test.fiscalapi.com"]);
+
+        Assert.Equal(ExitCodes.Usage, exitCode);
+        Assert.Contains("https", _error.ToString());
+    }
+
+    [Fact]
     public async Task Usage_exception_from_a_command_exits_2()
     {
         var exitCode = await RunAsync(["probe"], Throwing(new UsageException("Falta --url.")));

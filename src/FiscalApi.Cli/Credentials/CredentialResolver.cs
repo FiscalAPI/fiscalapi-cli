@@ -13,6 +13,7 @@ public sealed class CredentialResolver(ICredentialStore store, Func<string, stri
 
     /// <exception cref="UsageException">Sin credenciales, con solo una de las dos variables o con un valor inválido.</exception>
     /// <exception cref="CredentialStoreUnavailableException">Sin variables y sin almacén en el SO.</exception>
+    /// <exception cref="CredentialStoreException">Sin variables, y el almacén está bloqueado o falló.</exception>
     public ApiCredentials Resolve(ApiEnvironment environment)
     {
         var apiKey = ReadVariable(ApiKeyVariable);

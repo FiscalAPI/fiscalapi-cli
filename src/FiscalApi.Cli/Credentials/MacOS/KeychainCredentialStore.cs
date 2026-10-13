@@ -1,6 +1,5 @@
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
-using FiscalApi.Cli.Errors;
 
 namespace FiscalApi.Cli.Credentials.MacOS;
 
@@ -13,6 +12,22 @@ namespace FiscalApi.Cli.Credentials.MacOS;
 [SupportedOSPlatform("macos")]
 internal sealed unsafe class KeychainCredentialStore(string service) : ICredentialStore
 {
+    // Sin kSecReturnData la consulta solo dice si la entrada existe: no lee el secreto ni pide permiso para leerlo.
+    public void EnsureAvailable(string host)
+    {
+        using var serviceName = CoreFoundation.CreateString(service);
+        using var account = CoreFoundation.CreateString(host);
+        using var query = CoreFoundation.CreateDictionary(
+            [SecurityFramework.Class, SecurityFramework.AttrService, SecurityFramework.AttrAccount],
+            [SecurityFramework.ClassGenericPassword, Raw(serviceName), Raw(account)]);
+
+        var status = SecurityFramework.SecItemCopyMatching(Raw(query), result: null);
+        if (status != SecurityFramework.ItemNotFound)
+        {
+            ThrowIfFailed(status, "consultar");
+        }
+    }
+
     public ApiCredentials? Read(string host)
     {
         using var serviceName = CoreFoundation.CreateString(service);
@@ -99,11 +114,15 @@ internal sealed unsafe class KeychainCredentialStore(string service) : ICredenti
             return;
         }
 
-        // Sin llavero de sesión o sin poder pedir permiso (p. ej. por SSH con el llavero bloqueado): no hay almacén.
-        var unavailable = status is SecurityFramework.NotAvailable or SecurityFramework.NoSuchKeychain
-            or SecurityFramework.NoDefaultKeychain or SecurityFramework.InteractionNotAllowed;
-        throw unavailable
-            ? new CredentialStoreUnavailableException($"El llavero de macOS no está disponible (OSStatus {status}).")
-            : new CredentialStoreException($"El llavero de macOS falló al {operation} la entrada (OSStatus {status}).");
+        var detail = $"llavero de macOS, OSStatus {status}";
+        throw status switch
+        {
+            // Sin llavero de sesión: no hay almacén y la salida son las variables de entorno.
+            SecurityFramework.NotAvailable or SecurityFramework.NoSuchKeychain or SecurityFramework.NoDefaultKeychain =>
+                new CredentialStoreUnavailableException(detail),
+            // El llavero existe pero está bloqueado y no se puede pedir la contraseña (p. ej. por SSH).
+            SecurityFramework.InteractionNotAllowed => CredentialStoreException.Locked(detail),
+            _ => CredentialStoreException.Failed(operation, detail)
+        };
     }
 }

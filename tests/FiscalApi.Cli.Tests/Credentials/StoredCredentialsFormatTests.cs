@@ -22,6 +22,34 @@ public sealed class StoredCredentialsFormatTests
         Assert.Equal(credentials, StoredCredentialsFormat.Decode(secret, Host));
     }
 
+    /// <summary>
+    /// CRED_MAX_CREDENTIAL_BLOB_SIZE de Credential Manager (5 * 512 bytes), el límite más chico de los tres almacenes.
+    /// El escape de JSON puede volver un carácter en seis bytes (<c>"</c> → <c>"</c>), así que se prueba el peor.
+    /// </summary>
+    [Fact]
+    public void Longest_credentials_fit_the_smallest_store_limit_even_with_json_escapes()
+    {
+        const int SmallestStoreLimit = 5 * 512;
+
+        for (var character = '!'; character <= '~'; character++)
+        {
+            var longest = new string(character, ApiCredentials.MaxLength);
+
+            var secret = StoredCredentialsFormat.Encode(ApiCredentials.Create(longest, longest));
+
+            Assert.True(secret.Length <= SmallestStoreLimit, $"'{character}': {secret.Length} bytes");
+        }
+    }
+
+    [Fact]
+    public void Credentials_longer_than_the_maximum_are_rejected()
+    {
+        var tooLong = new string('a', ApiCredentials.MaxLength + 1);
+
+        Assert.Throws<FiscalApi.Cli.Errors.UsageException>(() => ApiCredentials.Create(tooLong, "tenant"));
+        Assert.Throws<FiscalApi.Cli.Errors.UsageException>(() => ApiCredentials.Create("sk_test", tooLong));
+    }
+
     [Theory]
     [InlineData("contraseña-escrita-a-mano")]
     [InlineData("""{"apiKey":"sk_test_sin-tenant"}""")]

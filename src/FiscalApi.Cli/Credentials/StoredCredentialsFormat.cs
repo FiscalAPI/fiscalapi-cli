@@ -26,8 +26,7 @@ internal static class StoredCredentialsFormat
         }
         catch (Exception exception) when (exception is JsonException or UsageException)
         {
-            throw new CredentialStoreException(
-                $"La entrada guardada para {host} no se puede leer. Ejecuta `fiscalapi logout` y luego `fiscalapi login`.");
+            throw CredentialStoreException.Unreadable(host);
         }
     }
 }

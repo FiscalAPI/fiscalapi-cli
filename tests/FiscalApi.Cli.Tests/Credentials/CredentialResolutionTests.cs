@@ -98,6 +98,28 @@ public sealed class CredentialResolutionTests
     }
 
     [Fact]
+    public async Task Locked_store_without_environment_variables_is_a_store_error_with_its_detail()
+    {
+        var exitCode = await RunProbeAsync(store: new LockedCredentialStore());
+
+        Assert.Equal(ExitCodes.Failure, exitCode);
+        Assert.Contains("El almacén de credenciales del sistema existe, pero está bloqueado o no respondió.", _error.ToString());
+        Assert.Contains(LockedCredentialStore.Detail, _error.ToString());
+        Assert.DoesNotContain("No hay un almacén", _error.ToString());
+    }
+
+    [Fact]
+    public async Task Environment_variables_do_not_touch_a_locked_store()
+    {
+        DefineEnvironmentCredentials();
+        var handler = new StubHttpMessageHandler().RespondJson(HttpStatusCode.OK, PersonFeaturesJson.WithWebhooksManage);
+
+        var exitCode = await RunProbeAsync(handler, new LockedCredentialStore());
+
+        Assert.Equal(ExitCodes.Success, exitCode);
+    }
+
+    [Fact]
     public async Task Environment_variables_work_without_a_store()
     {
         DefineEnvironmentCredentials();

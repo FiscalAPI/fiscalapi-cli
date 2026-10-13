@@ -5,11 +5,12 @@ using FiscalApi.Cli.Http;
 using FiscalApi.Cli.Input;
 using FiscalApi.Cli.Tests.Credentials;
 using FiscalApi.Cli.Tests.Http;
+using FiscalApi.Cli.Tests.Input;
 
 namespace FiscalApi.Cli.Tests.Commands;
 
 /// <summary>
-/// CLI-002: <c>fiscalapi login</c> lee la API key y la tenant key (aquí por stdin redirigido), las valida con
+/// CLI-002: <c>fiscalapi login</c> lee la API key y la tenant key (por stdin redirigido o tecla por tecla), las valida con
 /// <c>GET /api/v4/me/features</c> y las guarda por host. La API se simula con <see cref="StubHttpMessageHandler"/>.
 /// </summary>
 public sealed class LoginCommandTests
@@ -92,17 +93,88 @@ public sealed class LoginCommandTests
     }
 
     [Fact]
-    public async Task Without_a_store_shows_the_approved_text_and_exits_with_a_usage_error()
+    public async Task Without_a_store_fails_with_the_approved_text_before_asking_for_keys_or_calling_the_api()
     {
-        var handler = new StubHttpMessageHandler().RespondJson(HttpStatusCode.OK, PersonFeaturesJson.WithWebhooksManage);
+        var handler = new StubHttpMessageHandler();
+        var keys = new ScriptedKeys($"{ApiKey}\r{TenantKey}\r");
 
-        var exitCode = await RunAsync(handler, $"{ApiKey}\n{TenantKey}\n", new UnavailableCredentialStore());
+        var exitCode = await RunAsync(handler, InteractiveReader(keys), new UnavailableCredentialStore());
 
         Assert.Equal(ExitCodes.Usage, exitCode);
         Assert.Contains(
             "No hay un almacén de credenciales disponible en este sistema. Define FISCALAPI_API_KEY y FISCALAPI_TENANT_KEY.",
             _error.ToString());
-        Assert.DoesNotContain("Listo.", _error.ToString());
+        Assert.DoesNotContain("API key: ", _error.ToString());
+        Assert.Equal(0, keys.Read);
+        Assert.Empty(handler.Requests);
+    }
+
+    [Fact]
+    public async Task Locked_store_fails_before_asking_for_keys_or_calling_the_api()
+    {
+        var handler = new StubHttpMessageHandler();
+        var keys = new ScriptedKeys($"{ApiKey}\r{TenantKey}\r");
+
+        var exitCode = await RunAsync(handler, InteractiveReader(keys), new LockedCredentialStore());
+
+        Assert.Equal(ExitCodes.Failure, exitCode);
+        Assert.Contains("El almacén de credenciales del sistema existe, pero está bloqueado o no respondió.", _error.ToString());
+        Assert.Contains(LockedCredentialStore.Detail, _error.ToString());
+        Assert.Equal(0, keys.Read);
+        Assert.Empty(handler.Requests);
+    }
+
+    [Theory]
+    [InlineData("\r")]
+    [InlineData("sk_test_con eñe\r")]
+    public async Task Invalid_api_key_fails_before_asking_for_the_tenant_key(string typed)
+    {
+        var handler = new StubHttpMessageHandler();
+
+        var exitCode = await RunAsync(handler, InteractiveReader(new ScriptedKeys(typed + $"{TenantKey}\r")));
+
+        Assert.Equal(ExitCodes.Usage, exitCode);
+        Assert.Contains("La API key", _error.ToString());
+        Assert.Contains("API key: ", _error.ToString());
+        Assert.DoesNotContain("Tenant key: ", _error.ToString());
+        Assert.Empty(handler.Requests);
+    }
+
+    [Fact]
+    public async Task Interactive_input_saves_the_typed_keys_without_echoing_them()
+    {
+        var handler = new StubHttpMessageHandler().RespondJson(HttpStatusCode.OK, PersonFeaturesJson.WithWebhooksManage);
+
+        var exitCode = await RunAsync(handler, InteractiveReader(new ScriptedKeys($"{ApiKey}\r{TenantKey}\r")));
+
+        Assert.Equal(ExitCodes.Success, exitCode);
+        Assert.Equal(ApiCredentials.Create(ApiKey, TenantKey), _store.Read(Host));
+        Assert.DoesNotContain(ApiKey, _out.ToString() + _error.ToString());
+        Assert.DoesNotContain(TenantKey, _out.ToString() + _error.ToString());
+    }
+
+    [Fact]
+    public async Task Ctrl_c_while_waiting_for_a_key_exits_130()
+    {
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        var handler = new StubHttpMessageHandler();
+
+        var exitCode = await RunAsync(handler, InteractiveReader(new ScriptedKeys("")), cancellationToken: cancellation.Token);
+
+        Assert.Equal(ExitCodes.Cancelled, exitCode);
+        Assert.Empty(handler.Requests);
+        Assert.Empty(_store.Entries);
+    }
+
+    [Fact]
+    public async Task Redirected_input_with_a_byte_order_mark_is_accepted()
+    {
+        var handler = new StubHttpMessageHandler().RespondJson(HttpStatusCode.OK, PersonFeaturesJson.WithWebhooksManage);
+
+        var exitCode = await RunAsync(handler, $"\uFEFF{ApiKey}\n{TenantKey}\n");
+
+        Assert.Equal(ExitCodes.Success, exitCode);
+        Assert.Equal(ApiCredentials.Create(ApiKey, TenantKey), _store.Read(Host));
     }
 
     [Fact]
@@ -166,13 +238,25 @@ public sealed class LoginCommandTests
         Assert.Contains("Listo. Credenciales guardadas para localhost:5000.", _error.ToString());
     }
 
+    private ConsoleSecretReader InteractiveReader(ScriptedKeys keys) => new(_error, keys.TryRead);
+
     private Task<int> RunAsync(
         StubHttpMessageHandler handler,
         string input,
         ICredentialStore? store = null,
         bool verbose = false,
         bool json = false,
-        string? apiBase = null)
+        string? apiBase = null) =>
+        RunAsync(handler, new RedirectedSecretReader(new StringReader(input)), store, verbose, json, apiBase);
+
+    private Task<int> RunAsync(
+        StubHttpMessageHandler handler,
+        ISecretReader input,
+        ICredentialStore? store = null,
+        bool verbose = false,
+        bool json = false,
+        string? apiBase = null,
+        CancellationToken cancellationToken = default)
     {
         var globalOptions = new GlobalOptions();
         var console = new CliConsole(_out, _error);
@@ -180,7 +264,7 @@ public sealed class LoginCommandTests
         // Las variables de entorno no intervienen en login: la persona da las credenciales que se validan y guardan.
         var apiClients = new FiscalApiClientFactory(
             handler, new CredentialResolver(credentialStore, _ => null), console.Error, FiscalApiClientBuilder.NoDelayRetryPolicy);
-        var login = new LoginCommand(globalOptions, apiClients, credentialStore, new RedirectedSecretReader(new StringReader(input)), console);
+        var login = new LoginCommand(globalOptions, apiClients, credentialStore, input, console);
 
         List<string> args = ["login", "--api-base", apiBase ?? FiscalApiClientBuilder.BaseAddress.ToString()];
         if (verbose)
@@ -193,6 +277,6 @@ public sealed class LoginCommandTests
             args.Add("--json");
         }
 
-        return new CliApplication(globalOptions, [login], console).RunAsync(args, CancellationToken.None);
+        return new CliApplication(globalOptions, [login], console).RunAsync(args, cancellationToken);
     }
 }

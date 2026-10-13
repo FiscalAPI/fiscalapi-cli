@@ -62,10 +62,26 @@ public sealed class CredentialStoreTests : IDisposable
         Assert.False(_store.Delete(_host));
     }
 
+    [CredentialStoreFact]
+    public void Store_of_this_system_is_available_with_or_without_an_entry()
+    {
+        _store.EnsureAvailable(_host);
+        _store.Save(_host, Credentials);
+
+        _store.EnsureAvailable(_host);
+    }
+
+    // Cada borrado por separado: si el primero falla, el segundo igual limpia su entrada.
     public void Dispose()
     {
-        _store.Delete(_host);
-        _store.Delete(_otherHost);
+        try
+        {
+            _store.Delete(_host);
+        }
+        finally
+        {
+            _store.Delete(_otherHost);
+        }
     }
 
     private static string UniqueHost() => $"{Guid.NewGuid():N}.example.test";

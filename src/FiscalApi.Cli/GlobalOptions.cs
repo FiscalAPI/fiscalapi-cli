@@ -51,12 +51,20 @@ public sealed class GlobalOptions
     private static Uri? ParseApiBase(ArgumentResult result)
     {
         var value = result.Tokens.Single().Value;
-        if (Uri.TryCreate(value, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp))
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
         {
-            return uri;
+            result.AddError($"--api-base debe ser una URL absoluta http o https; se recibió '{value}'.");
+            return null;
         }
 
-        result.AddError($"--api-base debe ser una URL absoluta http o https; se recibió '{value}'.");
-        return null;
+        // La API key y la tenant key viajan en headers: sin TLS solo se permite el back local (localhost,
+        // 127.0.0.0/8 o ::1), que no sale del equipo.
+        if (uri.Scheme == Uri.UriSchemeHttp && !uri.IsLoopback)
+        {
+            result.AddError($"--api-base con http solo se permite para localhost, 127.0.0.1 o ::1; usa https para '{value}'.");
+            return null;
+        }
+
+        return uri;
     }
 }

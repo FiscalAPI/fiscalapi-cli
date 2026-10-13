@@ -9,9 +9,13 @@ namespace FiscalApi.Cli.Credentials;
 /// </summary>
 public sealed record ApiCredentials
 {
-    // Holgado frente a lo que emite fapi-back (API key de 51 caracteres, tenant key GUID) y muy por debajo del
-    // máximo de un secreto en Credential Manager (CRED_MAX_CREDENTIAL_BLOB_SIZE, 2560 bytes).
-    private const int MaxLength = 256;
+    /// <summary>
+    /// Holgado frente a lo que emite fapi-back (API key de 51 caracteres, tenant key GUID) y acotado para que el
+    /// secreto guardado nunca pase de 2560 bytes (CRED_MAX_CREDENTIAL_BLOB_SIZE, el límite más chico de los tres
+    /// almacenes): en JSON un carácter puede escaparse en seis bytes (<c>"</c> → <c>\u0022</c>), y 2 × 200 × 6 más
+    /// las llaves del objeto da 2428. Acotar la entrada da esa garantía sin un error más al guardar.
+    /// </summary>
+    public const int MaxLength = 200;
 
     private ApiCredentials(string apiKey, string tenantKey)
     {
@@ -28,9 +32,13 @@ public sealed record ApiCredentials
     /// <see cref="HttpClient"/> lanzara una excepción que repite el valor; por eso el mensaje nunca lo incluye.
     /// </summary>
     /// <exception cref="UsageException">Un valor vacío, demasiado largo o con caracteres no válidos.</exception>
-    public static ApiCredentials Create(string? apiKey, string? tenantKey) => new(
-        Validated(apiKey, "La API key"),
-        Validated(tenantKey, "La tenant key"));
+    public static ApiCredentials Create(string? apiKey, string? tenantKey) => new(ValidApiKey(apiKey), ValidTenantKey(tenantKey));
+
+    /// <summary>La API key validada sola, para rechazarla antes de pedir la tenant key.</summary>
+    /// <exception cref="UsageException">Un valor vacío, demasiado largo o con caracteres no válidos.</exception>
+    public static string ValidApiKey(string? apiKey) => Validated(apiKey, "La API key");
+
+    private static string ValidTenantKey(string? tenantKey) => Validated(tenantKey, "La tenant key");
 
     /// <summary>Sin los valores: un registro o un volcado de excepción nunca los muestra.</summary>
     public override string ToString() => "ApiCredentials { ApiKey = ***, TenantKey = *** }";

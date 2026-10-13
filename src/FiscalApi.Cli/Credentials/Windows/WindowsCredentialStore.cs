@@ -23,33 +23,13 @@ internal sealed unsafe class WindowsCredentialStore(string service) : ICredentia
     // Sesiones de red o de servicio sin conjunto de credenciales: no hay almacén que usar.
     private const int ErrorNoSuchLogonSession = 1312;
 
-    public ApiCredentials? Read(string host)
-    {
-        AdvApi32.CREDENTIALW* credential;
-        if (!AdvApi32.CredReadW(TargetName(host), CredTypeGeneric, flags: 0, &credential))
-        {
-            var error = Marshal.GetLastPInvokeError();
-            return error == ErrorNotFound ? null : throw Failure(error, "leer");
-        }
+    private delegate T SecretDecoder<out T>(ReadOnlySpan<byte> secret, string host);
 
-        try
-        {
-            // El bloque es nuestro hasta CredFree: se borra el secreto antes de devolverlo al sistema.
-            var secret = new Span<byte>(credential->CredentialBlob, checked((int)credential->CredentialBlobSize));
-            try
-            {
-                return StoredCredentialsFormat.Decode(secret, host);
-            }
-            finally
-            {
-                CryptographicOperations.ZeroMemory(secret);
-            }
-        }
-        finally
-        {
-            AdvApi32.CredFree(credential);
-        }
-    }
+    // Credential Manager no tiene una consulta sin secreto: se lee la entrada y se borra sin decodificarla, así una
+    // entrada ilegible no impide que login la reemplace.
+    public void EnsureAvailable(string host) => ReadSecret(host, "consultar", static (_, _) => true);
+
+    public ApiCredentials? Read(string host) => ReadSecret<ApiCredentials>(host, "leer", StoredCredentialsFormat.Decode);
 
     public void Save(string host, ApiCredentials credentials)
     {
@@ -92,9 +72,38 @@ internal sealed unsafe class WindowsCredentialStore(string service) : ICredentia
         return error == ErrorNotFound ? false : throw Failure(error, "borrar");
     }
 
+    /// <returns>Lo que devuelve <paramref name="decode"/>, o el valor por omisión si no hay entrada.</returns>
+    private T? ReadSecret<T>(string host, string operation, SecretDecoder<T> decode)
+    {
+        AdvApi32.CREDENTIALW* credential;
+        if (!AdvApi32.CredReadW(TargetName(host), CredTypeGeneric, flags: 0, &credential))
+        {
+            var error = Marshal.GetLastPInvokeError();
+            return error == ErrorNotFound ? default : throw Failure(error, operation);
+        }
+
+        try
+        {
+            // El bloque es nuestro hasta CredFree: se borra el secreto antes de devolverlo al sistema.
+            var secret = new Span<byte>(credential->CredentialBlob, checked((int)credential->CredentialBlobSize));
+            try
+            {
+                return decode(secret, host);
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(secret);
+            }
+        }
+        finally
+        {
+            AdvApi32.CredFree(credential);
+        }
+    }
+
     private string TargetName(string host) => $"{service}:{host}";
 
     private static CliException Failure(int error, string operation) => error == ErrorNoSuchLogonSession
         ? new CredentialStoreUnavailableException($"Credential Manager no tiene credenciales para esta sesión (Win32 {error}).")
-        : new CredentialStoreException($"Credential Manager falló al {operation} la entrada (Win32 {error}).");
+        : CredentialStoreException.Failed(operation, $"Credential Manager, Win32 {error}");
 }

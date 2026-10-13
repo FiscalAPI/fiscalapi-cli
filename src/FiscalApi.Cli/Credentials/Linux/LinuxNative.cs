@@ -34,15 +34,55 @@ internal static unsafe partial class GLib
     [LibraryImport(Library, EntryPoint = "g_error_free")]
     internal static partial void ErrorFree(GError* error);
 
-    /// <summary>
-    /// <c>g_str_hash</c> y <c>g_str_equal</c> como punteros a función para <c>g_hash_table_new</c>: llaves de texto
-    /// que se comparan por contenido, que es lo que libsecret espera de una tabla de atributos.
-    /// </summary>
-    internal static (nint Hash, nint Equal) StringHashFunctions()
+    // Lazy y no un campo estático: si GLib falta, el inicializador de tipo envolvería el DllNotFoundException en
+    // un TypeInitializationException. Lazy guarda la excepción y la vuelve a lanzar tal cual en cada intento.
+    private static readonly Lazy<(nint Hash, nint Equal)> StringHashFunctionPointers = new(() =>
     {
         var library = NativeLibrary.Load(Library);
         return (NativeLibrary.GetExport(library, "g_str_hash"), NativeLibrary.GetExport(library, "g_str_equal"));
+    });
+
+    /// <summary>
+    /// <c>g_str_hash</c> y <c>g_str_equal</c> como punteros a función para <c>g_hash_table_new</c>: llaves de texto
+    /// que se comparan por contenido, que es lo que libsecret espera de una tabla de atributos. Se cargan una vez.
+    /// </summary>
+    internal static (nint Hash, nint Equal) StringHashFunctions => StringHashFunctionPointers.Value;
+
+    /// <summary>Copia el mensaje del error y lo libera.</summary>
+    internal static string TakeMessage(GError* error)
+    {
+        var message = Utf8StringMarshaller.ConvertToManaged(error->Message) ?? string.Empty;
+        ErrorFree(error);
+        return message;
     }
+}
+
+/// <summary>GIO (gdbusconnection.h, gdbuserror.h): la sesión de D-Bus que usa libsecret.</summary>
+[SupportedOSPlatform("linux")]
+internal static unsafe partial class Gio
+{
+    private const string Library = "libgio-2.0.so.0";
+
+    internal const int BusTypeSession = 2;
+
+    // GDBusError: el nombre pedido (org.freedesktop.secrets) no existe en el bus ni se puede activar.
+    internal const int DBusErrorServiceUnknown = 2;
+    internal const int DBusErrorNameHasNoOwner = 3;
+
+    /// <returns>La conexión (se libera con <see cref="GObject.Unref"/>), o 0 con <paramref name="error"/>.</returns>
+    [LibraryImport(Library, EntryPoint = "g_bus_get_sync")]
+    internal static partial nint BusGetSync(int busType, nint cancellable, GLib.GError** error);
+
+    [LibraryImport(Library, EntryPoint = "g_dbus_error_quark")]
+    internal static partial uint DBusErrorQuark();
+}
+
+/// <summary>GObject: libera la referencia a la conexión de D-Bus.</summary>
+[SupportedOSPlatform("linux")]
+internal static partial class GObject
+{
+    [LibraryImport("libgobject-2.0.so.0", EntryPoint = "g_object_unref")]
+    internal static partial void Unref(nint instance);
 }
 
 /// <summary>
@@ -90,7 +130,7 @@ internal sealed unsafe class StringHashTable : IDisposable
 
     public StringHashTable(IEnumerable<KeyValuePair<string, string?>> entries)
     {
-        var (hash, equal) = GLib.StringHashFunctions();
+        var (hash, equal) = GLib.StringHashFunctions;
         Handle = GLib.HashTableNew(hash, equal);
         foreach (var (key, value) in entries)
         {

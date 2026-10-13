@@ -5,7 +5,8 @@ namespace FiscalApi.Cli.Commands;
 
 /// <summary>
 /// <c>fiscalapi logout</c> (CLI-002): borra la entrada del host del ambiente en el almacén del SO. Es local (no
-/// llama a la API) y siempre termina con éxito, aunque no hubiera nada guardado.
+/// llama a la API). Termina con éxito si borró o si no había nada guardado; si el almacén existe pero falla
+/// (bloqueado, sin respuesta), lo dice y sale con 1.
 /// </summary>
 public sealed class LogoutCommand : Command
 {
@@ -33,16 +34,21 @@ public sealed class LogoutCommand : Command
         return ExitCodes.Success;
     }
 
-    // Sin almacén en el SO, login nunca pudo guardar nada: no hay nada que borrar y no es un error.
     private bool DeleteSavedCredentials(string host)
     {
         try
         {
             return _store.Delete(host);
         }
+        // Sin almacén en el SO, login nunca pudo guardar nada: no hay nada que borrar y no es un error.
         catch (CredentialStoreUnavailableException)
         {
             return false;
+        }
+        // El almacén existe: la entrada puede seguir ahí, así que nunca se dice que no había nada.
+        catch (CredentialStoreException exception)
+        {
+            throw exception.During($"No se pudieron borrar las credenciales guardadas para {host}.");
         }
     }
 }

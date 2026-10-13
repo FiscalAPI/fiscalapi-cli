@@ -46,10 +46,13 @@ public sealed class LoginCommand : Command
         var settings = _globalOptions.Read(parseResult);
         var host = settings.Environment.Host;
 
-        // Se valida cada valor antes de llamar a la API: un valor vacío es un error de uso, no un 401.
-        var credentials = ApiCredentials.Create(
-            await _input.ReadAsync("API key: ", cancellationToken),
-            await _input.ReadAsync("Tenant key: ", cancellationToken));
+        // Sin almacén no se piden las llaves ni se llama a la API: no se podrían guardar.
+        _store.EnsureAvailable(host);
+
+        // Cada valor se valida en cuanto se lee: un valor inválido es un error de uso, no un 401, y una API key
+        // inválida se rechaza antes de pedir la tenant key.
+        var apiKey = ApiCredentials.ValidApiKey(await _input.ReadAsync("API key: ", cancellationToken));
+        var credentials = ApiCredentials.Create(apiKey, await _input.ReadAsync("Tenant key: ", cancellationToken));
 
         var features = await FetchFeaturesAsync(settings, credentials, cancellationToken);
         _store.Save(host, credentials);

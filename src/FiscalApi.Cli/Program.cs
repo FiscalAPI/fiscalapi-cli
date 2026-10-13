@@ -41,7 +41,7 @@ try
     // Con stdin redirigido no hay una persona que lea un prompt ni teclas que ocultar.
     ISecretReader secretReader = Console.IsInputRedirected
         ? new RedirectedSecretReader(Console.In)
-        : new ConsoleSecretReader(console.Error);
+        : new ConsoleSecretReader(console.Error, () => Console.KeyAvailable ? Console.ReadKey(intercept: true) : null);
 
     IReadOnlyList<Command> commands =
     [

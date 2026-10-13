@@ -6,6 +6,20 @@ namespace FiscalApi.Cli.Input;
 /// </summary>
 public sealed class RedirectedSecretReader(TextReader input) : ISecretReader
 {
-    public async Task<string?> ReadAsync(string prompt, CancellationToken cancellationToken) =>
-        await input.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+    private const char ByteOrderMark = '\uFEFF';
+
+    private bool _firstLine = true;
+
+    public async Task<string?> ReadAsync(string prompt, CancellationToken cancellationToken)
+    {
+        var line = await input.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+        // Un archivo guardado como "UTF-8 con BOM" y redirigido trae U+FEFF al inicio, y Trim no lo quita.
+        if (_firstLine && line is not null)
+        {
+            line = line.TrimStart(ByteOrderMark);
+        }
+
+        _firstLine = false;
+        return line;
+    }
 }

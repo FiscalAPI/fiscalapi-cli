@@ -5,7 +5,8 @@ using FiscalApi.Cli.Tests.Credentials;
 namespace FiscalApi.Cli.Tests.Commands;
 
 /// <summary>
-/// CLI-002: <c>fiscalapi logout</c> es local (no recibe cliente HTTP) y siempre termina con éxito.
+/// CLI-002: <c>fiscalapi logout</c> es local (no recibe cliente HTTP). Termina con éxito si borró o si no había
+/// nada guardado; un almacén que existe pero falla (bloqueado, sin respuesta) es un error con código 1.
 /// </summary>
 public sealed class LogoutCommandTests
 {
@@ -55,6 +56,18 @@ public sealed class LogoutCommandTests
 
         Assert.Equal(ExitCodes.Success, exitCode);
         Assert.Contains("No había credenciales guardadas para test.fiscalapi.com.", _error.ToString());
+    }
+
+    [Fact]
+    public async Task Locked_store_reports_that_it_could_not_delete_and_exits_1()
+    {
+        var exitCode = await RunAsync(["logout"], new LockedCredentialStore());
+
+        Assert.Equal(ExitCodes.Failure, exitCode);
+        Assert.Contains("No se pudieron borrar las credenciales guardadas para test.fiscalapi.com.", _error.ToString());
+        Assert.Contains("El almacén de credenciales del sistema existe, pero está bloqueado o no respondió.", _error.ToString());
+        Assert.Contains(LockedCredentialStore.Detail, _error.ToString());
+        Assert.DoesNotContain("No había credenciales", _error.ToString());
     }
 
     private Task<int> RunAsync(string[] args, ICredentialStore? store = null)
