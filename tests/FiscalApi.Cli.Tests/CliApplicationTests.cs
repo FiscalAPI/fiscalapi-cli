@@ -3,6 +3,7 @@ using System.Net;
 using FiscalApi.Cli.Errors;
 using FiscalApi.Cli.Http;
 using FiscalApi.Cli.Tests.Http;
+using FiscalApi.Cli.Tests.Updates;
 
 namespace FiscalApi.Cli.Tests;
 
@@ -219,7 +220,8 @@ public sealed class CliApplicationTests
         var application = new CliApplication(
             new GlobalOptions(),
             command is null ? [] : [command],
-            new CliConsole(_out, _error));
+            new CliConsole(_out, _error),
+            NoUpdateCheck.Instance);
         return application.RunAsync(args, cancellationToken);
     }
 }

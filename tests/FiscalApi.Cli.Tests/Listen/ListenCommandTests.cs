@@ -8,6 +8,7 @@ using FiscalApi.Cli.Http;
 using FiscalApi.Cli.Listen;
 using FiscalApi.Cli.Tests.Credentials;
 using FiscalApi.Cli.Tests.Http;
+using FiscalApi.Cli.Tests.Updates;
 using Microsoft.AspNetCore.Http;
 
 namespace FiscalApi.Cli.Tests.Listen;
@@ -856,7 +857,7 @@ public sealed class ListenCommandTests : IAsyncLifetime
         var apiClients = new FiscalApiClientFactory(
             FiscalApiClientFactory.CreateHandler(), credentials, console.Error, FiscalApiClientBuilder.NoDelayRetryPolicy);
         var listen = new ListenCommand(globalOptions, apiClients, console, TimeProvider.System, _timings);
-        var application = new CliApplication(globalOptions, [listen], console);
+        var application = new CliApplication(globalOptions, [listen], console, NoUpdateCheck.Instance);
 
         string[] args = ["listen", "--api-base", apiBase.ToString(), .. options];
         _run = Task.Run(() => application.RunAsync(args, _ctrlC.Token));

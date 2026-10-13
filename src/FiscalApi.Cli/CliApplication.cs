@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.CommandLine.Help;
 using System.CommandLine.Invocation;
 using FiscalApi.Cli.Errors;
+using FiscalApi.Cli.Updates;
 
 namespace FiscalApi.Cli;
 
@@ -17,11 +18,13 @@ public sealed class CliApplication
     private readonly CliConsole _console;
     private readonly InvocationConfiguration _invocation;
     private readonly InvocationConfiguration _jsonInvocation;
+    private readonly IUpdateCheck _updateCheck;
 
-    public CliApplication(GlobalOptions globalOptions, IReadOnlyList<Command> commands, CliConsole console)
+    public CliApplication(GlobalOptions globalOptions, IReadOnlyList<Command> commands, CliConsole console, IUpdateCheck updateCheck)
     {
         _globalOptions = globalOptions;
         _console = console;
+        _updateCheck = updateCheck;
         _rootCommand = new RootCommand("CLI de FiscalAPI: webhooks y eventos desde la terminal.");
         globalOptions.AddTo(_rootCommand);
         foreach (var command in commands)
@@ -52,9 +55,23 @@ public sealed class CliApplication
             return await ReportUsageErrorsAsync(parseResult);
         }
 
+        var settings = _globalOptions.Read(parseResult);
+        // El aviso de versión nueva corre mientras corre el comando y se muestra al final, después de su salida.
+        var updateNotice = _updateCheck.Start(settings, cancellationToken);
+        var exitCode = await InvokeAsync(parseResult, settings, cancellationToken);
+        if (exitCode != ExitCodes.Cancelled && await updateNotice is { } notice)
+        {
+            await notice.WriteToAsync(_console.Error);
+        }
+
+        return exitCode;
+    }
+
+    private async Task<int> InvokeAsync(ParseResult parseResult, GlobalSettings settings, CancellationToken cancellationToken)
+    {
         try
         {
-            var invocation = _globalOptions.Read(parseResult).Json ? _jsonInvocation : _invocation;
+            var invocation = settings.Json ? _jsonInvocation : _invocation;
             return await parseResult.InvokeAsync(invocation, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

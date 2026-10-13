@@ -6,6 +6,7 @@ using FiscalApi.Cli.Input;
 using FiscalApi.Cli.Tests.Credentials;
 using FiscalApi.Cli.Tests.Http;
 using FiscalApi.Cli.Tests.Input;
+using FiscalApi.Cli.Tests.Updates;
 
 namespace FiscalApi.Cli.Tests.Commands;
 
@@ -277,6 +278,6 @@ public sealed class LoginCommandTests
             args.Add("--json");
         }
 
-        return new CliApplication(globalOptions, [login], console).RunAsync(args, cancellationToken);
+        return new CliApplication(globalOptions, [login], console, NoUpdateCheck.Instance).RunAsync(args, cancellationToken);
     }
 }

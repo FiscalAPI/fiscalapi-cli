@@ -1,6 +1,7 @@
 using FiscalApi.Cli.Commands;
 using FiscalApi.Cli.Credentials;
 using FiscalApi.Cli.Tests.Credentials;
+using FiscalApi.Cli.Tests.Updates;
 
 namespace FiscalApi.Cli.Tests.Commands;
 
@@ -75,6 +76,6 @@ public sealed class LogoutCommandTests
         var globalOptions = new GlobalOptions();
         var console = new CliConsole(_out, _error);
         var logout = new LogoutCommand(globalOptions, store ?? _store, console);
-        return new CliApplication(globalOptions, [logout], console).RunAsync(args, CancellationToken.None);
+        return new CliApplication(globalOptions, [logout], console, NoUpdateCheck.Instance).RunAsync(args, CancellationToken.None);
     }
 }

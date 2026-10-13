@@ -3,6 +3,7 @@ using System.Net;
 using FiscalApi.Cli.Credentials;
 using FiscalApi.Cli.Http;
 using FiscalApi.Cli.Tests.Http;
+using FiscalApi.Cli.Tests.Updates;
 
 namespace FiscalApi.Cli.Tests.Credentials;
 
@@ -239,6 +240,6 @@ public sealed class CredentialResolutionTests
         });
 
         string[] args = ["probe", "--api-base", FiscalApiClientBuilder.BaseAddress.ToString(), .. verbose ? new[] { "--verbose" } : []];
-        return new CliApplication(globalOptions, [probe], console).RunAsync(args, CancellationToken.None);
+        return new CliApplication(globalOptions, [probe], console, NoUpdateCheck.Instance).RunAsync(args, CancellationToken.None);
     }
 }

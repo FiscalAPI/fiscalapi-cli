@@ -9,6 +9,7 @@ using FiscalApi.Cli.Credentials;
 using FiscalApi.Cli.Http;
 using FiscalApi.Cli.Input;
 using FiscalApi.Cli.Listen;
+using FiscalApi.Cli.Updates;
 
 // UTF-8 sin BOM: en Windows la consola usa la página de códigos OEM, que rompe los acentos de los mensajes
 // de la API y el JSON que se redirige a otra herramienta. En Windows esto cambia la página de códigos de la
@@ -58,7 +59,16 @@ try
         new EventsCommand(globalOptions, apiClients, console)
     ];
 
-    var application = new CliApplication(globalOptions, commands, console);
+    // El aviso de versión nueva comparte el handler (y el proxy del sistema), pero no las credenciales de la API.
+    var updateCheck = new UpdateCheck(
+        httpHandler,
+        UpdateCheckStateFile.ForCurrentUser(Environment.GetEnvironmentVariable),
+        Environment.GetEnvironmentVariable,
+        Console.IsErrorRedirected,
+        TimeProvider.System,
+        CliVersion.Current);
+
+    var application = new CliApplication(globalOptions, commands, console, updateCheck);
     return await application.RunAsync(args, cancellation.Token);
 }
 finally

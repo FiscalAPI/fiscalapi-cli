@@ -8,6 +8,7 @@ using FiscalApi.Cli.Http;
 using FiscalApi.Cli.Input;
 using FiscalApi.Cli.Tests.Credentials;
 using FiscalApi.Cli.Tests.Http;
+using FiscalApi.Cli.Tests.Updates;
 
 namespace FiscalApi.Cli.Tests.Commands;
 
@@ -57,7 +58,7 @@ internal sealed class ApiCommandHarness
             new EventsCommand(globalOptions, apiClients, console)
         ];
 
-        return new CliApplication(globalOptions, commands, console)
+        return new CliApplication(globalOptions, commands, console, NoUpdateCheck.Instance)
             .RunAsync([.. args, "--api-base", FiscalApiClientBuilder.BaseAddress.ToString()], cancellationToken);
     }
 
