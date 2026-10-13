@@ -69,11 +69,20 @@ if ($actual -ne $expected) { throw "El SHA-256 no coincide: $actual" } else { 'S
 
 $dir = Join-Path $env:LOCALAPPDATA 'Programs\fiscalapi'
 Expand-Archive fiscalapi-win-x64.zip -DestinationPath $dir -Force
-$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+
+# Agrega la carpeta al PATH de tu usuario sin expandir las variables que ya tenga (%USERPROFILE%…).
+$environment = Get-Item 'HKCU:\Environment'
+$userPath = $environment.GetValue('Path', '', 'DoNotExpandEnvironmentNames')
 if (($userPath -split ';') -notcontains $dir) {
-    [Environment]::SetEnvironmentVariable('Path', "$userPath;$dir", 'User')
+    $newPath = (@($userPath.TrimEnd(';'), $dir) | Where-Object { $_ }) -join ';'
+    Set-ItemProperty -Path 'HKCU:\Environment' -Name Path -Value $newPath -Type ExpandString
+    # Avisa a Windows del cambio para que las terminales nuevas lo vean (no crea ninguna variable).
+    [Environment]::SetEnvironmentVariable('FISCALAPI_CLI_PATH_REFRESH', [NullString]::Value, 'User')
 }
 ```
+
+Si prefieres hacerlo a mano: "Editar las variables de entorno de esta cuenta" → `Path` → Nuevo → la carpeta
+`%LOCALAPPDATA%\Programs\fiscalapi`.
 
 Abre una terminal nueva y corre `fiscalapi --version`. El binario no lleva firma Authenticode: si lo bajaste con el
 navegador, SmartScreen puede advertirlo; `Unblock-File "$dir\fiscalapi.exe"` quita la marca de descarga.

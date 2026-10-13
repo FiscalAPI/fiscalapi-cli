@@ -7,7 +7,7 @@ public sealed record UpdateNotice(SemanticVersion Current, SemanticVersion Lates
     /// La página del release se arma con la versión ya validada y no con el <c>html_url</c> de la respuesta: así a la
     /// terminal solo llega texto que el CLI controla.
     /// </summary>
-    public Uri DownloadUrl => new($"https://github.com/FiscalAPI/fiscalapi-cli/releases/tag/v{Latest}");
+    public Uri DownloadUrl => CliRepository.ReleasePage(Latest);
 
     /// <summary>Va a stderr: stdout es de los datos del comando.</summary>
     public async Task WriteToAsync(TextWriter writer)

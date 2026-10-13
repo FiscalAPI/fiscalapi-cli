@@ -70,10 +70,47 @@ public sealed class CliApplicationUpdateCheckTests
     }
 
     [Fact]
-    public async Task Ctrl_c_exits_130_without_the_notice()
+    public async Task Ctrl_c_still_shows_a_notice_that_was_already_known()
     {
+        // fiscalapi listen siempre termina con Ctrl+C: si el aviso ya llegó durante la escucha, se muestra.
         using var cancellation = new CancellationTokenSource();
         var check = new ScriptedUpdateCheck(Task.FromResult<UpdateNotice?>(Notice()));
+
+        var exitCode = await RunAsync(["probe"], CancelledByCtrlC(cancellation), check, cancellation.Token);
+
+        Assert.Equal(ExitCodes.Cancelled, exitCode);
+        Assert.Contains("https://github.com/FiscalAPI/fiscalapi-cli/releases/tag/v0.2.0", _error.ToString());
+    }
+
+    [Fact]
+    public async Task Ctrl_c_exits_at_once_without_waiting_for_a_pending_check()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var neverEnds = new TaskCompletionSource<UpdateNotice?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var check = new ScriptedUpdateCheck(neverEnds.Task);
+
+        var exitCode = await RunAsync(["probe"], CancelledByCtrlC(cancellation), check, cancellation.Token)
+            .WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(ExitCodes.Cancelled, exitCode);
+        Assert.Empty(_error.ToString());
+    }
+
+    [Fact]
+    public async Task Ctrl_c_ignores_a_check_that_ended_without_a_notice()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var check = new ScriptedUpdateCheck(Task.FromResult<UpdateNotice?>(null));
+
+        var exitCode = await RunAsync(["probe"], CancelledByCtrlC(cancellation), check, cancellation.Token);
+
+        Assert.Equal(ExitCodes.Cancelled, exitCode);
+        Assert.Empty(_error.ToString());
+    }
+
+    /// <summary>Un comando que espera hasta que llega Ctrl+C, como fiscalapi listen.</summary>
+    private static Command CancelledByCtrlC(CancellationTokenSource cancellation)
+    {
         var probe = new Command("probe");
         probe.SetAction(async (_, cancellationToken) =>
         {
@@ -81,11 +118,7 @@ public sealed class CliApplicationUpdateCheckTests
             await Task.Delay(Timeout.Infinite, cancellationToken);
             return ExitCodes.Success;
         });
-
-        var exitCode = await RunAsync(["probe"], probe, check, cancellation.Token);
-
-        Assert.Equal(ExitCodes.Cancelled, exitCode);
-        Assert.DoesNotContain("0.2.0", _error.ToString());
+        return probe;
     }
 
     [Fact]

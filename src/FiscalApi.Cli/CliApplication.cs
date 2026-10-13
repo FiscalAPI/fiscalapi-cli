@@ -59,12 +59,26 @@ public sealed class CliApplication
         // El aviso de versión nueva corre mientras corre el comando y se muestra al final, después de su salida.
         var updateNotice = _updateCheck.Start(settings, cancellationToken);
         var exitCode = await InvokeAsync(parseResult, settings, cancellationToken);
-        if (exitCode != ExitCodes.Cancelled && await updateNotice is { } notice)
+        if (await NoticeToShowAsync(updateNotice, exitCode) is { } notice)
         {
             await notice.WriteToAsync(_console.Error);
         }
 
         return exitCode;
+    }
+
+    /// <summary>
+    /// Tras Ctrl+C la salida es inmediata: solo se muestra un aviso que ya llegó (fiscalapi listen siempre termina así),
+    /// sin esperar una consulta en curso. En los demás casos se espera, a lo más el tope de la consulta.
+    /// </summary>
+    private static async Task<UpdateNotice?> NoticeToShowAsync(Task<UpdateNotice?> updateNotice, int exitCode)
+    {
+        if (exitCode != ExitCodes.Cancelled)
+        {
+            return await updateNotice;
+        }
+
+        return updateNotice.IsCompletedSuccessfully ? updateNotice.Result : null;
     }
 
     private async Task<int> InvokeAsync(ParseResult parseResult, GlobalSettings settings, CancellationToken cancellationToken)

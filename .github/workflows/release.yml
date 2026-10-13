@@ -17,7 +17,8 @@ on:
 permissions:
   contents: read      # Required for actions/checkout; solo el job release escribe.
 
-# Dos corridas del mismo tag o rama no compiten por el mismo borrador; una corrida en curso nunca se cancela.
+# Las corridas del mismo tag o rama van de una en una: la que llega queda pendiente hasta que termine la que está en curso,
+# que nunca se cancela. Si llega otra mientras una espera, GitHub cancela la pendiente y deja la más nueva.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
@@ -50,10 +51,16 @@ jobs:
           else
             version="$INPUT_VERSION"
           fi
+          # El valor sin validar no se imprime: podría traer texto que el runner interprete como comando (::…::).
           identifier='(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)'
           semver="^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-${identifier}(\.${identifier})*)?(\+[0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*)?$"
           if ! [[ "$version" =~ $semver ]]; then
-            echo "::error::'$version' no es una versión semántica (p. ej. 1.2.3 o 1.2.3-rc.1)."
+            echo "::error::La versión del tag o de la entrada 'version' no es semántica (p. ej. v1.2.3 o 1.2.3-rc.1)."
+            exit 1
+          fi
+          # workflow_dispatch sobre un tag: la versión del binario debe ser la del tag.
+          if [ "$REF_TYPE" = "tag" ] && [ -n "$INPUT_VERSION" ] && [ "$INPUT_VERSION" != "$version" ]; then
+            echo "::error::La entrada 'version' no coincide con el tag v$version; déjala igual a $version o corre sobre una rama."
             exit 1
           fi
           without_build="${version%%+*}"
@@ -64,6 +71,24 @@ jobs:
             echo "prerelease=$prerelease"
           } >> "$GITHUB_OUTPUT"
           echo "Versión $version (prerelease: $prerelease)."
+
+      # En workflow_dispatch el borrador apunta a este commit con --target, pero GitHub ignora target_commitish si el tag
+      # ya existe: el release quedaría con binarios de otro commit. Por eso un tag existente detiene la corrida.
+      - name: Ensure the tag does not exist yet
+        if: github.ref_type != 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}   # contents: read del workflow.
+          TAG: v${{ steps.version.outputs.version }}
+        run: |
+          if output=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq .ref 2>&1); then
+            echo "::error::El tag $TAG ya existe. Usa otra versión o empuja el tag para un release real."
+            exit 1
+          fi
+          if [[ "$output" != *"HTTP 404"* ]]; then
+            echo "::error::No se pudo comprobar si el tag $TAG existe: $output"
+            exit 1
+          fi
+          echo "El tag $TAG no existe: el borrador lo creará sobre $GITHUB_SHA al publicarse."
 
   build:
     name: Build ${{ matrix.rid }}
@@ -105,6 +130,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          # Sin el token en .git/config: ningún paso posterior lo necesita y así no queda al alcance de otro proceso.
+          persist-credentials: false
 
       # En Linux el SDK se instala dentro del contenedor de compilación.
       - name: Set up .NET
@@ -125,15 +153,20 @@ jobs:
           Write-Host "vswhere.exe antes del cambio: $(if ($vswhere) { $vswhere.Source } else { 'no está en PATH' })"
           Add-Content -Path $env:GITHUB_PATH -Value $installer
 
-      # El almacén de macOS (CLI-002) no se ha ejecutado fuera de aquí: el release no sigue si la ida y vuelta real en el
-      # llavero falla. Se exige que todas las pruebas hayan corrido y pasado (ninguna omitida).
-      - name: Credential store tests (macOS Keychain)
-        if: runner.os == 'macOS'
+      # Ida y vuelta real en el almacén del SO (CLI-002): Credential Manager en Windows y el llavero en macOS, que el CI de
+      # los PR (Linux) no cubre. El release no sigue si falla, y se exige que todas hayan corrido y pasado (ninguna omitida).
+      # En macOS corre con un llavero de prueba desbloqueado como llavero por omisión.
+      - name: Credential store tests (Credential Manager / Keychain)
+        if: runner.os != 'Linux'
         run: |
-          bash .github/scripts/with-test-keychain.sh \
-            dotnet test FiscalApi.Cli.slnx -c Release \
-            --filter "FullyQualifiedName~CredentialStoreTests" \
-            --logger "trx;LogFileName=credential-store.trx" --results-directory TestResults
+          test_command=(dotnet test FiscalApi.Cli.slnx -c Release
+            --filter "FullyQualifiedName~CredentialStoreTests"
+            --logger "trx;LogFileName=credential-store.trx" --results-directory TestResults)
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            bash .github/scripts/with-test-keychain.sh "${test_command[@]}"
+          else
+            "${test_command[@]}"
+          fi
           counters=$(grep -o '<Counters [^>]*>' TestResults/credential-store.trx)
           total=$(sed -E 's/.* total="([0-9]+)".*/\1/' <<< "$counters")
           passed=$(sed -E 's/.* passed="([0-9]+)".*/\1/' <<< "$counters")
@@ -164,20 +197,33 @@ jobs:
           "./$PUBLISH_DIR/$BINARY" --help > /dev/null
           echo "$RID: fiscalapi $actual"
 
-      # Solo el binario: los símbolos (.pdb, .dbg, .dSYM) se quedan fuera del empaque.
+      # Solo el binario: los símbolos (.pdb, .dbg, .dSYM) se quedan fuera, y cada empaque debe traer exactamente una
+      # entrada, el binario.
       - name: Package (zip)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           Compress-Archive -Path "$env:PUBLISH_DIR/$env:BINARY" -DestinationPath "dist/$env:PACKAGE"
+          $zip = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path "dist/$env:PACKAGE"))
+          try { $entries = @($zip.Entries | ForEach-Object FullName) } finally { $zip.Dispose() }
+          if ($entries.Count -ne 1 -or $entries[0] -ne $env:BINARY) {
+            Write-Output "::error::$env:PACKAGE debe traer solo $env:BINARY; trae: $($entries -join ', ')."
+            exit 1
+          }
 
+      # COPYFILE_DISABLE: el tar de macOS no agrega los archivos ._* de atributos extendidos.
       - name: Package (tar.gz)
         if: runner.os != 'Windows'
         run: |
           mkdir -p dist
-          tar -czf "dist/$PACKAGE" -C "$PUBLISH_DIR" "$BINARY"
+          COPYFILE_DISABLE=1 tar -czf "dist/$PACKAGE" -C "$PUBLISH_DIR" "$BINARY"
           tar -tzvf "dist/$PACKAGE"
+          entries=$(tar -tzf "dist/$PACKAGE")
+          if [ "$entries" != "$BINARY" ]; then
+            echo "::error::$PACKAGE debe traer solo $BINARY; trae: $(tr '\n' ' ' <<< "$entries")."
+            exit 1
+          fi
 
       - name: Upload package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

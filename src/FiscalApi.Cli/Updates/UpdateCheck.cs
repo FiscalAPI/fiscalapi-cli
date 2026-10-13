@@ -24,9 +24,7 @@ public sealed class UpdateCheck(
     public const string OptOutVariable = "FISCALAPI_NO_UPDATE_CHECK";
     private const string CiVariable = "CI";
 
-    // releases/latest ya descarta borradores y prereleases (docs.github.com/rest/releases/releases#get-the-latest-release).
     // Anónimo: el repo es público y el límite de 60 consultas por hora e IP sobra para una al día.
-    private static readonly Uri LatestReleaseUri = new("https://api.github.com/repos/FiscalAPI/fiscalapi-cli/releases/latest");
     private const string GitHubApiVersion = "2022-11-28";
 
     // La respuesta trae las notas del release y la lista de binarios: unos KB. El tope corta algo desmedido.
@@ -94,7 +92,7 @@ public sealed class UpdateCheck(
         // Un cliente propio sobre el handler compartido (mismo proxy del sistema): no lleva los headers con las
         // credenciales de FiscalAPI que agrega FiscalApiClientFactory.
         using var client = new HttpClient(handler, disposeHandler: false) { MaxResponseContentBufferSize = MaxResponseBytes };
-        using var request = new HttpRequestMessage(HttpMethod.Get, LatestReleaseUri);
+        using var request = new HttpRequestMessage(HttpMethod.Get, CliRepository.LatestReleaseApi);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         request.Headers.Add("X-GitHub-Api-Version", GitHubApiVersion);
         // GitHub rechaza las peticiones sin User-Agent.

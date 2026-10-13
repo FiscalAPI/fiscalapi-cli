@@ -18,15 +18,18 @@ output="$2"
 max_glibc="2.28"
 
 # Prerrequisitos de Native AOT en RHEL 8 (Microsoft Learn): clang y zlib-devel; binutils trae objcopy (StripSymbols) y
-# objdump. libicu es del SDK, no del binario (InvariantGlobalization).
-dnf install -y --setopt=install_weak_deps=False clang zlib-devel binutils libicu findutils > /dev/null
+# objdump. libicu es del SDK, no del binario (InvariantGlobalization). gnupg2 verifica el script de instalación.
+dnf install -y --setopt=install_weak_deps=False clang zlib-devel binutils libicu findutils gnupg2 > /dev/null
 
-# El SDK exacto de global.json, con el script oficial (https://dot.net/v1/dotnet-install.sh).
+# El SDK exacto de global.json, con el script oficial (https://dot.net/v1/dotnet-install.sh), que solo se ejecuta si su
+# firma GPG es la de Microsoft. El script baja el SDK por HTTPS de builds.dotnet.microsoft.com.
 export DOTNET_ROOT=/opt/dotnet
 export PATH="$DOTNET_ROOT:$PATH"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
 export DOTNET_NOLOGO=1
 curl -fsSL --retry 3 https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
+curl -fsSL --retry 3 https://dot.net/v1/dotnet-install.sig -o /tmp/dotnet-install.sig
+bash "$(dirname "${BASH_SOURCE[0]}")/verify-dotnet-install.sh" /tmp/dotnet-install.sh /tmp/dotnet-install.sig
 bash /tmp/dotnet-install.sh --jsonfile global.json --install-dir "$DOTNET_ROOT" --no-path
 
 # TreatWarningsAsErrors (Directory.Build.props) convierte cualquier advertencia IL de trimming/AOT en un error.
