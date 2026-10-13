@@ -1,0 +1,46 @@
+name: CI-Pipeline
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read      # Required for actions/checkout
+
+jobs:
+  build:
+    # Runner hospedado por GitHub: el CLI no depende de Docker ni del runner self-hosted de fapi-back.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # Prerrequisitos de Native AOT en Linux: el linker (clang) y zlib.
+      - name: Install Native AOT prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+
+      - name: Restore
+        run: dotnet restore FiscalApi.Cli.slnx
+
+      - name: Build
+        run: dotnet build FiscalApi.Cli.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test FiscalApi.Cli.slnx -c Release --no-build
+
+      # TreatWarningsAsErrors convierte cualquier advertencia IL de trimming/AOT en un error que rompe este paso.
+      - name: Publish Native AOT (linux-x64)
+        run: dotnet publish src/FiscalApi.Cli -r linux-x64 -c Release -o artifacts/linux-x64
+
+      - name: Smoke test
+        run: |
+          ./artifacts/linux-x64/fiscalapi --version
+          ./artifacts/linux-x64/fiscalapi --help

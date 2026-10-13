@@ -1,0 +1,29 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Con esto una advertencia IL de trimming/AOT rompe el build y el publish en vez de pasar desapercibida. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- El binario no depende de la cultura del equipo; AOT no necesita cargar ICU. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!--
+      Sin el sha del commit en AssemblyInformationalVersion: la opción de versión del CLI y el
+      User-Agent muestran la versión semántica tal cual, en local y en el CI.
+    -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <!-- Convención del repo: un proyecto de pruebas termina en .Tests. -->
+    <IsTestProject Condition="$(MSBuildProjectName.EndsWith('.Tests'))">true</IsTestProject>
+  </PropertyGroup>
+
+  <!--
+    Propiedades AOT solo para el código que se publica. Las pruebas corren sobre CoreCLR con xUnit,
+    que usa reflexión, y no se publican como binario nativo.
+  -->
+  <PropertyGroup Condition="'$(IsTestProject)' != 'true'">
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+</Project>
