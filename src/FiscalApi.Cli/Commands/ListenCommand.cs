@@ -25,7 +25,7 @@ public sealed class ListenCommand : Command
         Description = "Tipos de evento separados por coma (p. ej. invoice.canceled,invoice.created). Por omisión, todos.",
         HelpName = "tipos",
         Arity = ArgumentArity.ExactlyOne,
-        CustomParser = ParseEvents,
+        CustomParser = CommaSeparatedValues.Parse,
         DefaultValueFactory = _ => ["*"]
     };
 
@@ -141,10 +141,6 @@ public sealed class ListenCommand : Command
             }
         }
     }
-
-    // Los tipos los valida la API, con sus textos (un tipo que no existe, '*' junto a otros o ninguno).
-    private static IReadOnlyList<string> ParseEvents(ArgumentResult result) =>
-        result.Tokens.Single().Value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
     // "Nombre:Valor,Nombre:Valor": el valor llega hasta la coma siguiente y puede llevar ':'. Cada header se prueba aquí
     // con la misma validación de HttpClient que usará el reenvío, así un header inválido es un error de uso y no una

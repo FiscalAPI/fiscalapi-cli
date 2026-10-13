@@ -3,6 +3,8 @@ using System.Runtime.InteropServices;
 using System.Text;
 using FiscalApi.Cli;
 using FiscalApi.Cli.Commands;
+using FiscalApi.Cli.Commands.Events;
+using FiscalApi.Cli.Commands.Webhooks;
 using FiscalApi.Cli.Credentials;
 using FiscalApi.Cli.Http;
 using FiscalApi.Cli.Input;
@@ -44,11 +46,16 @@ try
         ? new RedirectedSecretReader(Console.In)
         : new ConsoleSecretReader(console.Error, () => Console.KeyAvailable ? Console.ReadKey(intercept: true) : null);
 
+    // La confirmación de borrar solo se pregunta a una persona en la terminal; un script usa --yes.
+    var confirmation = new ConsoleConfirmationPrompt(console.Error, Console.In, isInteractive: !Console.IsInputRedirected);
+
     IReadOnlyList<Command> commands =
     [
         new LoginCommand(globalOptions, apiClients, credentialStore, secretReader, console),
         new LogoutCommand(globalOptions, credentialStore, console),
-        new ListenCommand(globalOptions, apiClients, console, TimeProvider.System, ListenTimings.Default)
+        new ListenCommand(globalOptions, apiClients, console, TimeProvider.System, ListenTimings.Default),
+        new WebhooksCommand(globalOptions, apiClients, confirmation, console),
+        new EventsCommand(globalOptions, apiClients, console)
     ];
 
     var application = new CliApplication(globalOptions, commands, console);

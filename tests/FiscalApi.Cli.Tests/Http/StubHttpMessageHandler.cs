@@ -15,6 +15,12 @@ public sealed class StubHttpMessageHandler : HttpMessageHandler
 
     public List<HttpRequestMessage> Requests { get; } = [];
 
+    /// <summary>
+    /// El cuerpo de cada request, en el orden de <see cref="Requests"/> (<c>null</c> si no llevó). Se lee al recibirlo: el
+    /// cliente libera el request (y su contenido) en cuanto termina.
+    /// </summary>
+    public List<string?> RequestBodies { get; } = [];
+
     public StubHttpMessageHandler RespondJson(HttpStatusCode status, string json, int times = 1) =>
         Respond(() => Json(status, json), times);
 
@@ -64,11 +70,12 @@ public sealed class StubHttpMessageHandler : HttpMessageHandler
         return this;
     }
 
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         Requests.Add(request);
+        RequestBodies.Add(request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken));
         return _responses.TryDequeue(out var respond)
-            ? respond(cancellationToken)
+            ? await respond(cancellationToken)
             : throw new InvalidOperationException($"Request no esperado: {request.Method} {request.RequestUri}.");
     }
 }

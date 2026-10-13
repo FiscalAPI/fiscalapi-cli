@@ -16,7 +16,7 @@ public sealed class LoginCommand : Command
 {
     private const string FeaturesPath = "api/v4/me/features";
 
-    // El permiso que exigen listen, trigger y webhook-endpoints (Permissions.Webhooks.Manage de fapi-back).
+    // El permiso que exigen listen, trigger y webhooks (Permissions.Webhooks.Manage de fapi-back).
     private const string WebhooksManagePermission = "Webhooks.Manage";
 
     private readonly GlobalOptions _globalOptions;
@@ -62,7 +62,7 @@ public sealed class LoginCommand : Command
         if (features?.Permissions.Contains(WebhooksManagePermission, StringComparer.Ordinal) != true)
         {
             await _console.Error.WriteLineAsync(
-                "Esta API key no tiene el permiso Webhooks.Manage; listen, trigger y webhook-endpoints responderán 403.");
+                "Esta API key no tiene el permiso Webhooks.Manage; listen, trigger y webhooks responderán 403.");
         }
 
         return ExitCodes.Success;

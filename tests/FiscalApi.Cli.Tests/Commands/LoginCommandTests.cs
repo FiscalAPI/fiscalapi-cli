@@ -86,7 +86,7 @@ public sealed class LoginCommandTests
 
         Assert.Equal(ExitCodes.Success, exitCode);
         Assert.Contains(
-            "Esta API key no tiene el permiso Webhooks.Manage; listen, trigger y webhook-endpoints responderán 403.",
+            "Esta API key no tiene el permiso Webhooks.Manage; listen, trigger y webhooks responderán 403.",
             _error.ToString());
         Assert.Contains($"Listo. Credenciales guardadas para {Host}.", _error.ToString());
         Assert.Equal(ApiCredentials.Create(ApiKey, TenantKey), _store.Read(Host));

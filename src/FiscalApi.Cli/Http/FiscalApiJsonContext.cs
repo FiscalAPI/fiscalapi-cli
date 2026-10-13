@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FiscalApi.Cli.Listen;
+using FiscalApi.Cli.Webhooks;
 
 namespace FiscalApi.Cli.Http;
 
@@ -18,4 +19,13 @@ namespace FiscalApi.Cli.Http;
 [JsonSerializable(typeof(ApiResponse<bool>))]
 [JsonSerializable(typeof(ListenSecretRecord))]
 [JsonSerializable(typeof(ListenEventRecord))]
+// CLI-003: el data se lee como JsonElement para imprimirlo sin cambios; los modelos solo alimentan la salida de texto.
+[JsonSerializable(typeof(ApiResponse<JsonElement>))]
+[JsonSerializable(typeof(Webhook))]
+[JsonSerializable(typeof(PagedList<Webhook>))]
+[JsonSerializable(typeof(CreateWebhookRequest))]
+[JsonSerializable(typeof(UpdateWebhookRequest))]
+[JsonSerializable(typeof(PagedList<WebhookEventEnvelope>))]
+[JsonSerializable(typeof(ResendWebhookEventRequest))]
+[JsonSerializable(typeof(WebhookEventResend))]
 public sealed partial class FiscalApiJsonContext : JsonSerializerContext;
