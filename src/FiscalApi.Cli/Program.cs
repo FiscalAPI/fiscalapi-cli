@@ -2,7 +2,10 @@ using System.CommandLine;
 using System.Runtime.InteropServices;
 using System.Text;
 using FiscalApi.Cli;
+using FiscalApi.Cli.Commands;
+using FiscalApi.Cli.Credentials;
 using FiscalApi.Cli.Http;
+using FiscalApi.Cli.Input;
 
 // UTF-8 sin BOM: en Windows la consola usa la página de códigos OEM, que rompe los acentos de los mensajes
 // de la API y el JSON que se redirige a otra herramienta. En Windows esto cambia la página de códigos de la
@@ -24,14 +27,29 @@ try
     });
 
     var console = new CliConsole(Console.Out, Console.Error);
+    var globalOptions = new GlobalOptions();
+
+    // El almacén del SO en que corre el binario; FISCALAPI_API_KEY y FISCALAPI_TENANT_KEY ganan sobre él (D-25).
+    var credentialStore = CredentialStores.ForCurrentOs(CredentialStores.ProductionService);
+    var credentials = new CredentialResolver(credentialStore, Environment.GetEnvironmentVariable);
 
     // Un solo handler (y su pool de conexiones) para todo el proceso; los comandos reciben apiClients por
     // constructor y piden su cliente con el timeout que necesitan.
     using var httpHandler = FiscalApiClientFactory.CreateHandler();
-    var apiClients = new FiscalApiClientFactory(httpHandler, console.Error, RetryPolicy.Default);
-    IReadOnlyList<Command> commands = [];
+    var apiClients = new FiscalApiClientFactory(httpHandler, credentials, console.Error, RetryPolicy.Default);
 
-    var application = new CliApplication(new GlobalOptions(), commands, console);
+    // Con stdin redirigido no hay una persona que lea un prompt ni teclas que ocultar.
+    ISecretReader secretReader = Console.IsInputRedirected
+        ? new RedirectedSecretReader(Console.In)
+        : new ConsoleSecretReader(console.Error);
+
+    IReadOnlyList<Command> commands =
+    [
+        new LoginCommand(globalOptions, apiClients, credentialStore, secretReader, console),
+        new LogoutCommand(globalOptions, credentialStore, console)
+    ];
+
+    var application = new CliApplication(globalOptions, commands, console);
     return await application.RunAsync(args, cancellation.Token);
 }
 finally

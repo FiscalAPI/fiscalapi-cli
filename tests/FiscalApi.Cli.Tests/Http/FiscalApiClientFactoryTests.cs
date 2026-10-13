@@ -11,9 +11,9 @@ public sealed class FiscalApiClientFactoryTests
     public async Task Client_targets_the_resolved_environment_with_the_cli_user_agent()
     {
         var handler = new StubHttpMessageHandler().RespondJson(HttpStatusCode.OK, Success);
-        var factory = new FiscalApiClientFactory(handler, TextWriter.Null, FiscalApiClientBuilder.NoDelayRetryPolicy);
+        var factory = FiscalApiClientBuilder.Factory(handler);
 
-        await factory.Create(Settings(live: true), FiscalApiClientFactory.DefaultTimeout)
+        await factory.Create(Settings(live: true), FiscalApiClientBuilder.Credentials, FiscalApiClientFactory.DefaultTimeout)
             .GetAsync("api/v4/probe", TestJsonContext.Default.ApiResponseProbeData, CancellationToken.None);
 
         var request = Assert.Single(handler.Requests);
@@ -25,11 +25,11 @@ public sealed class FiscalApiClientFactoryTests
     public async Task Clients_share_the_handler_without_disposing_it()
     {
         var handler = new StubHttpMessageHandler().RespondJson(HttpStatusCode.OK, Success, times: 2);
-        var factory = new FiscalApiClientFactory(handler, TextWriter.Null, FiscalApiClientBuilder.NoDelayRetryPolicy);
+        var factory = FiscalApiClientBuilder.Factory(handler);
 
-        await factory.Create(Settings(live: false), FiscalApiClientFactory.DefaultTimeout)
+        await factory.Create(Settings(live: false), FiscalApiClientBuilder.Credentials, FiscalApiClientFactory.DefaultTimeout)
             .GetAsync("api/v4/probe", TestJsonContext.Default.ApiResponseProbeData, CancellationToken.None);
-        await factory.Create(Settings(live: true), FiscalApiClientFactory.DefaultTimeout)
+        await factory.Create(Settings(live: true), FiscalApiClientBuilder.Credentials, FiscalApiClientFactory.DefaultTimeout)
             .GetAsync("api/v4/probe", TestJsonContext.Default.ApiResponseProbeData, CancellationToken.None);
 
         Assert.Equal(2, handler.Requests.Count);
@@ -40,9 +40,9 @@ public sealed class FiscalApiClientFactoryTests
     {
         using var diagnostics = new StringWriter();
         var handler = new StubHttpMessageHandler().RespondJson(HttpStatusCode.OK, Success);
-        var factory = new FiscalApiClientFactory(handler, diagnostics, FiscalApiClientBuilder.NoDelayRetryPolicy);
+        var factory = FiscalApiClientBuilder.Factory(handler, diagnostics);
 
-        await factory.Create(Settings(live: false, verbose: true), FiscalApiClientFactory.DefaultTimeout)
+        await factory.Create(Settings(live: false, verbose: true), FiscalApiClientBuilder.Credentials, FiscalApiClientFactory.DefaultTimeout)
             .GetAsync("api/v4/probe", TestJsonContext.Default.ApiResponseProbeData, CancellationToken.None);
 
         Assert.Contains("> GET https://test.fiscalapi.com/api/v4/probe", diagnostics.ToString());

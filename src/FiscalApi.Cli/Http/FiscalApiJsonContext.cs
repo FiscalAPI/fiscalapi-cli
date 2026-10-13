@@ -9,4 +9,5 @@ namespace FiscalApi.Cli.Http;
 /// </summary>
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
 [JsonSerializable(typeof(ApiResponse))]
+[JsonSerializable(typeof(ApiResponse<PersonFeatures>))]
 public sealed partial class FiscalApiJsonContext : JsonSerializerContext;

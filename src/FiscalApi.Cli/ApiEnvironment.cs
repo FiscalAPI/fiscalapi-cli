@@ -14,6 +14,12 @@ public sealed record ApiEnvironment
     /// <summary>Siempre termina en <c>/</c>, para que las rutas relativas conserven su prefijo.</summary>
     public Uri BaseAddress { get; }
 
+    /// <summary>
+    /// Host (y puerto, si no es el de omisión) de la API: identifica la entrada del almacén de credenciales y es
+    /// lo que ven los mensajes. Así test, live y cada back local guardan credenciales separadas (D-25).
+    /// </summary>
+    public string Host => BaseAddress.Authority;
+
     /// <summary>Precedencia: <c>--api-base</c> gana sobre <c>--live</c>, y este sobre test.</summary>
     public static ApiEnvironment Resolve(Uri? apiBase, bool live) =>
         new(WithTrailingSlash(apiBase ?? (live ? LiveBaseAddress : TestBaseAddress)));

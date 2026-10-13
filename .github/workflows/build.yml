@@ -27,11 +27,12 @@ jobs:
         with:
           global-json-file: global.json
 
-      # Prerrequisitos de Native AOT en Linux: el linker (clang) y zlib.
-      - name: Install Native AOT prerequisites
+      # Prerrequisitos de Native AOT en Linux (el linker clang y zlib) y un Secret Service de prueba para las
+      # pruebas del almacén de credenciales (libsecret, gnome-keyring y D-Bus).
+      - name: Install Native AOT and Secret Service prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+          sudo apt-get install -y --no-install-recommends clang zlib1g-dev libsecret-1-0 gnome-keyring dbus dbus-x11
 
       - name: Restore
         run: dotnet restore FiscalApi.Cli.slnx
@@ -39,8 +40,16 @@ jobs:
       - name: Build
         run: dotnet build FiscalApi.Cli.slnx -c Release --no-restore
 
+      # gnome-keyring en una sesión de D-Bus propia, desbloqueado con una contraseña de prueba: así corren contra
+      # libsecret las pruebas de CredentialStoreTests, que sin FISCALAPI_CLI_SECRET_SERVICE_TESTS se omiten en Linux.
       - name: Test
-        run: dotnet test FiscalApi.Cli.slnx -c Release --no-build
+        env:
+          FISCALAPI_CLI_SECRET_SERVICE_TESTS: "1"
+        run: |
+          dbus-run-session -- bash -c '
+            printf "%s" "llavero-del-ci" | gnome-keyring-daemon --unlock --components=secrets > /dev/null
+            sleep 1
+            dotnet test FiscalApi.Cli.slnx -c Release --no-build'
 
       # TreatWarningsAsErrors convierte cualquier advertencia IL de trimming/AOT en un error que rompe este paso.
       - name: Publish Native AOT (linux-x64)

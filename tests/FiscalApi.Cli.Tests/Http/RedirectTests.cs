@@ -37,8 +37,8 @@ public sealed class RedirectTests : IDisposable
     {
         using var handler = FiscalApiClientFactory.CreateHandler();
         var settings = new GlobalSettings(ApiEnvironment.Resolve(_baseAddress, live: false), Json: false, Verbose: false);
-        var client = new FiscalApiClientFactory(handler, TextWriter.Null, FiscalApiClientBuilder.NoDelayRetryPolicy)
-            .Create(settings, TimeSpan.FromSeconds(10));
+        var client = FiscalApiClientBuilder.Factory(handler)
+            .Create(settings, FiscalApiClientBuilder.Credentials, TimeSpan.FromSeconds(10));
 
         var error = await Assert.ThrowsAsync<ApiException>(() =>
             client.GetAsync("origen", TestJsonContext.Default.ApiResponseProbeData, CancellationToken.None));

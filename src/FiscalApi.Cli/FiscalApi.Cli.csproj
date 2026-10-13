@@ -8,10 +8,17 @@
     <Version>0.1.0</Version>
     <Product>FiscalAPI CLI</Product>
     <Company>FiscalAPI</Company>
+    <!-- LibraryImport genera el interop con punteros (almacenes de credenciales del SO). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="System.CommandLine" Version="2.0.13" />
+  </ItemGroup>
+
+  <!-- El formato del secreto guardado es interno y se prueba directamente, con entradas corruptas que el SO no produce. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="FiscalApi.Cli.Tests" />
   </ItemGroup>
 
 </Project>
