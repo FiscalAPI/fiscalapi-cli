@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.Net;
 using FiscalApi.Cli.Errors;
 using FiscalApi.Cli.Http;
+using FiscalApi.Cli.Tests.Http;
 
 namespace FiscalApi.Cli.Tests;
 
@@ -42,6 +43,16 @@ public sealed class CliApplicationTests
 
         Assert.Equal(ExitCodes.Success, exitCode);
         Assert.Contains("--api-base", _out.ToString());
+    }
+
+    [Fact]
+    public async Task Without_subcommand_and_with_json_the_help_goes_to_stderr()
+    {
+        var exitCode = await RunAsync(["--json"]);
+
+        Assert.Equal(ExitCodes.Success, exitCode);
+        Assert.Empty(_out.ToString());
+        Assert.Contains("--api-base", _error.ToString());
     }
 
     [Fact]
@@ -134,6 +145,31 @@ public sealed class CliApplicationTests
     }
 
     [Fact]
+    public async Task Ctrl_c_during_an_api_request_exits_130_and_not_as_a_network_error()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var client = FiscalApiClientBuilder.Create(new StubHttpMessageHandler().NeverRespond());
+
+        var exitCode = await RunAsync(["probe"], CallingApi(client, cancellation), cancellation.Token);
+
+        Assert.Equal(ExitCodes.Cancelled, exitCode);
+        Assert.Empty(_error.ToString());
+    }
+
+    [Fact]
+    public async Task Success_response_with_data_of_another_shape_exits_1_showing_the_exception()
+    {
+        var client = FiscalApiClientBuilder.Create(new StubHttpMessageHandler()
+            .RespondJson(HttpStatusCode.OK, """{"succeeded":true,"data":"no es un objeto"}"""));
+
+        var exitCode = await RunAsync(["probe"], CallingApi(client));
+
+        Assert.Equal(ExitCodes.Failure, exitCode);
+        Assert.Contains("JsonException", _error.ToString());
+        Assert.DoesNotContain("Respuesta inesperada", _error.ToString());
+    }
+
+    [Fact]
     public async Task Command_exit_code_is_returned_as_is()
     {
         var probe = new Command("probe");
@@ -148,6 +184,24 @@ public sealed class CliApplicationTests
     {
         var probe = new Command("probe");
         probe.SetAction((_, _) => Task.FromException<int>(exception));
+        return probe;
+    }
+
+    /// <summary>Un comando que hace un GET; si recibe <paramref name="cancelAfterStart"/>, simula Ctrl+C en pleno request.</summary>
+    private static Command CallingApi(FiscalApiClient client, CancellationTokenSource? cancelAfterStart = null)
+    {
+        var probe = new Command("probe");
+        probe.SetAction(async (_, cancellationToken) =>
+        {
+            var request = client.GetAsync("api/v4/probe", TestJsonContext.Default.ApiResponseProbeData, cancellationToken);
+            if (cancelAfterStart is not null)
+            {
+                await cancelAfterStart.CancelAsync();
+            }
+
+            await request;
+            return ExitCodes.Success;
+        });
         return probe;
     }
 

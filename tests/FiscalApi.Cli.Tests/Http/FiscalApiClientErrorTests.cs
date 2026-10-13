@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using FiscalApi.Cli.Errors;
 
 namespace FiscalApi.Cli.Tests.Http;
@@ -36,6 +37,35 @@ public sealed class FiscalApiClientErrorTests
         Assert.Equal("0HN7:00000001", error.TraceIdentifier);
         Assert.Contains("fiscalapi login", error.Hint);
         Assert.Contains("FISCALAPI_API_KEY", error.Hint);
+        // El back también responde 401 cuando falta X-TENANT-KEY.
+        Assert.Contains("FISCALAPI_TENANT_KEY", error.Hint);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Found)]
+    [InlineData(HttpStatusCode.TemporaryRedirect)]
+    public async Task Redirect_is_an_api_error_with_its_status_code(HttpStatusCode status)
+    {
+        var handler = new StubHttpMessageHandler().Respond(() =>
+        {
+            var response = new HttpResponseMessage(status);
+            response.Headers.Location = new Uri("https://otro-host.example.test/api/v4/probe");
+            return response;
+        });
+
+        var error = await Assert.ThrowsAsync<ApiException>(() => GetAsync(handler));
+
+        Assert.Equal(status, error.StatusCode);
+        Assert.Single(handler.Requests);
+    }
+
+    [Fact]
+    public async Task Success_status_with_data_of_another_shape_is_a_cli_defect_not_an_unexpected_response()
+    {
+        var handler = new StubHttpMessageHandler()
+            .RespondJson(HttpStatusCode.OK, """{"succeeded":true,"data":"no es un objeto"}""");
+
+        await Assert.ThrowsAsync<JsonException>(() => GetAsync(handler));
     }
 
     [Fact]

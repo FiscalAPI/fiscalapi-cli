@@ -13,7 +13,9 @@ public sealed class ApiException : CliException
     // Pistas accionables por código HTTP. Viven aquí, en un mapa, y no en condicionales repartidos por los comandos.
     private static readonly FrozenDictionary<HttpStatusCode, string> Hints = new Dictionary<HttpStatusCode, string>
     {
-        [HttpStatusCode.Unauthorized] = "Ejecuta `fiscalapi login` o revisa la variable de entorno FISCALAPI_API_KEY."
+        // El back responde 401 tanto por la API key como por la tenant key (X-TENANT-KEY).
+        [HttpStatusCode.Unauthorized] =
+            "Ejecuta `fiscalapi login` o revisa las variables de entorno FISCALAPI_API_KEY y FISCALAPI_TENANT_KEY."
     }.ToFrozenDictionary();
 
     private ApiException(HttpStatusCode statusCode, string message, string? details, string? traceIdentifier)

@@ -15,26 +15,52 @@ public sealed class VerboseLoggingHandler(TextWriter diagnostics) : DelegatingHa
         "X-API-KEY",
         "X-TENANT-KEY",
         "Authorization",
-        "Cookie"
+        "Proxy-Authorization",
+        "Cookie",
+        "Set-Cookie"
     };
 
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        diagnostics.WriteLine($"> {request.Method} {request.RequestUri}");
+        var line = $"{request.Method} {request.RequestUri}";
+        diagnostics.WriteLine($"> {line}");
         WriteHeaders("> ", request.Headers);
+        WriteHeaders("> ", request.Content?.Headers);
 
         var startedAt = Stopwatch.GetTimestamp();
-        var response = await base.SendAsync(request, cancellationToken);
+        HttpResponseMessage response;
+        try
+        {
+            response = await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        catch (HttpRequestException exception)
+        {
+            diagnostics.WriteLine($"! {line} falló ({exception.HttpRequestError}) tras {Elapsed(startedAt)}: {exception.Message}");
+            throw;
+        }
+        // Aquí no se distingue el timeout de HttpClient de un Ctrl+C: ambos cancelan el mismo token.
+        catch (OperationCanceledException)
+        {
+            diagnostics.WriteLine($"! {line} sin respuesta tras {Elapsed(startedAt)} (tiempo agotado o cancelado)");
+            throw;
+        }
 
-        var elapsed = Stopwatch.GetElapsedTime(startedAt);
-        diagnostics.WriteLine($"< {(int)response.StatusCode} {response.ReasonPhrase} ({elapsed.TotalMilliseconds:0} ms)");
+        diagnostics.WriteLine($"< {(int)response.StatusCode} {response.ReasonPhrase} ({Elapsed(startedAt)})");
         WriteHeaders("< ", response.Headers);
+        WriteHeaders("< ", response.Content.Headers);
         return response;
     }
 
-    private void WriteHeaders(string prefix, HttpHeaders headers)
+    private static string Elapsed(long startedAt) => $"{Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds:0} ms";
+
+    private void WriteHeaders(string prefix, HttpHeaders? headers)
     {
+        if (headers is null)
+        {
+            return;
+        }
+
         foreach (var (name, values) in headers)
         {
             if (!CredentialHeaders.Contains(name))

@@ -6,6 +6,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- Con esto una advertencia IL de trimming/AOT rompe el build y el publish en vez de pasar desapercibida. -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!--
+      Los avisos de NuGetAudit (vulnerabilidad baja, moderada, alta y crítica en un paquete) siguen siendo
+      avisos: dependen de la base de datos de vulnerabilidades del día y romperían el CI sin ningún cambio
+      en el repo. Se atienden actualizando el paquete, no apagando el aviso.
+    -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
     <!-- El binario no depende de la cultura del equipo; AOT no necesita cargar ICU. -->
     <InvariantGlobalization>true</InvariantGlobalization>
     <!--
@@ -18,11 +24,10 @@
   </PropertyGroup>
 
   <!--
-    Propiedades AOT solo para el código que se publica. Las pruebas corren sobre CoreCLR con xUnit,
-    que usa reflexión, y no se publican como binario nativo.
+    Analizadores de trimming y AOT para todo el código que no es de pruebas. Las pruebas corren sobre
+    CoreCLR con xUnit, que usa reflexión. PublishAot vive solo en el proyecto del binario.
   -->
   <PropertyGroup Condition="'$(IsTestProject)' != 'true'">
-    <PublishAot>true</PublishAot>
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 

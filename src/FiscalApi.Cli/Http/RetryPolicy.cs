@@ -3,11 +3,15 @@ using System.Net;
 namespace FiscalApi.Cli.Http;
 
 /// <summary>
-/// Reintentos con backoff exponencial y jitter, solo ante errores transitorios: red, 408, 429 y 5xx.
-/// Un 4xx nunca se reintenta. Quien la usa decide qué requests son seguros de repetir (solo GET).
+/// Reintentos con backoff exponencial y jitter, solo ante errores transitorios: conexión fallida o cortada,
+/// 408, 429 y 5xx. Un 4xx nunca se reintenta, y un timeout tampoco: el plazo que ve la persona es el del
+/// mensaje. Quien la usa decide qué requests son seguros de repetir (solo GET).
 /// </summary>
 public sealed class RetryPolicy
 {
+    // Con más de 2^30 veces la base cualquier espera ya superó el máximo; el tope evita desbordar el cálculo.
+    private const int MaxBackoffExponent = 30;
+
     private readonly TimeSpan _baseDelay;
     private readonly TimeSpan _maxDelay;
     private readonly TimeProvider _timeProvider;
@@ -39,11 +43,11 @@ public sealed class RetryPolicy
             try
             {
                 using var request = createRequest();
-                response = await httpClient.SendAsync(request, cancellationToken);
+                response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             }
-            catch (Exception exception) when (attempt < MaxAttempts && IsTransientFailure(exception, cancellationToken))
+            catch (HttpRequestException exception) when (attempt < MaxAttempts && IsTransient(exception.HttpRequestError))
             {
-                await Task.Delay(Backoff(attempt), _timeProvider, cancellationToken);
+                await Task.Delay(Backoff(attempt), _timeProvider, cancellationToken).ConfigureAwait(false);
                 continue;
             }
 
@@ -53,17 +57,17 @@ public sealed class RetryPolicy
             }
 
             response.Dispose();
-            await Task.Delay(delay, _timeProvider, cancellationToken);
+            await Task.Delay(delay, _timeProvider, cancellationToken).ConfigureAwait(false);
         }
     }
 
     private static bool IsTransient(HttpStatusCode statusCode) =>
         statusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests || (int)statusCode >= 500;
 
-    // HttpClient reporta su timeout como TaskCanceledException sin que el token de quien llama se haya cancelado.
-    private static bool IsTransientFailure(Exception exception, CancellationToken cancellationToken) =>
-        exception is HttpRequestException
-        || (exception is TaskCanceledException && !cancellationToken.IsCancellationRequested);
+    // Solo fallas que otro intento puede resolver. Un error de TLS o de DNS (casi siempre un --api-base mal
+    // escrito) se repetiría igual, y solo retrasaría el mensaje.
+    private static bool IsTransient(HttpRequestError error) =>
+        error is HttpRequestError.ConnectionError or HttpRequestError.ResponseEnded;
 
     /// <summary>
     /// Respeta <c>Retry-After</c> cuando viene. Si pide esperar más que el máximo, no se reintenta y el error
@@ -85,11 +89,10 @@ public sealed class RetryPolicy
     // "Equal jitter": la mitad fija y la otra mitad aleatoria, para que varios CLI no reintenten al unísono.
     private TimeSpan Backoff(int attempt)
     {
-        var exponential = Min(_baseDelay * Math.Pow(2, attempt - 1), _maxDelay);
+        var exponent = Math.Min(attempt - 1, MaxBackoffExponent);
+        var exponential = TimeSpan.FromTicks((long)Math.Min(_baseDelay.Ticks * Math.Pow(2, exponent), _maxDelay.Ticks));
         return exponential / 2 + exponential / 2 * Random.Shared.NextDouble();
     }
-
-    private static TimeSpan Min(TimeSpan a, TimeSpan b) => a < b ? a : b;
 
     private static TimeSpan Max(TimeSpan a, TimeSpan b) => a > b ? a : b;
 }

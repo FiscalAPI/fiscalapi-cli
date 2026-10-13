@@ -7,6 +7,11 @@ on:
 permissions:
   contents: read      # Required for actions/checkout
 
+# Un push nuevo al mismo PR cancela la corrida anterior: solo importa el último commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     # Runner hospedado por GitHub: el CLI no depende de Docker ni del runner self-hosted de fapi-back.
@@ -14,12 +19,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
+      # El SDK sale de global.json, el mismo que se usa en local.
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
         with:
-          dotnet-version: 10.0.x
+          global-json-file: global.json
 
       # Prerrequisitos de Native AOT en Linux: el linker (clang) y zlib.
       - name: Install Native AOT prerequisites
@@ -42,5 +48,10 @@ jobs:
 
       - name: Smoke test
         run: |
-          ./artifacts/linux-x64/fiscalapi --version
+          expected=$(grep -oPm1 "(?<=<Version>)[^<]+" src/FiscalApi.Cli/FiscalApi.Cli.csproj)
+          actual=$(./artifacts/linux-x64/fiscalapi --version)
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::fiscalapi --version devolvió '$actual'; se esperaba '$expected'."
+            exit 1
+          fi
           ./artifacts/linux-x64/fiscalapi --help

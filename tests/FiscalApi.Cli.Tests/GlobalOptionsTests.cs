@@ -40,6 +40,19 @@ public sealed class GlobalOptionsTests
     }
 
     [Theory]
+    [InlineData("https://dev.example.test/fiscalapi")]
+    [InlineData("https://dev.example.test/fiscalapi/")]
+    public void Api_base_keeps_its_path_prefix_when_resolving_api_routes(string apiBase)
+    {
+        var settings = Parse("--api-base", apiBase);
+
+        Assert.Equal(new Uri("https://dev.example.test/fiscalapi/"), settings.Environment.BaseAddress);
+        Assert.Equal(
+            new Uri("https://dev.example.test/fiscalapi/api/v4/me/features"),
+            new Uri(settings.Environment.BaseAddress, "api/v4/me/features"));
+    }
+
+    [Theory]
     [InlineData("localhost:5001")]
     [InlineData("ftp://localhost")]
     [InlineData("/api/v4")]

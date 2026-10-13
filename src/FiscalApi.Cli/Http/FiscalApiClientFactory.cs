@@ -3,31 +3,32 @@ using System.Net.Http.Headers;
 namespace FiscalApi.Cli.Http;
 
 /// <summary>
-/// El único lugar donde se fabrica el <see cref="HttpClient"/> del CLI. Se crea uno por invocación, después de
-/// parsear, porque la URL base y <c>--verbose</c> dependen de las opciones globales.
+/// El único lugar donde se fabrican los clientes HTTP del CLI. Comparte un solo handler (pool de conexiones)
+/// y crea un <see cref="HttpClient"/> por invocación, porque la URL base, <c>--verbose</c> y el timeout
+/// dependen de las opciones globales y del comando. Llega a los comandos por constructor para que sus
+/// pruebas inyecten un handler falso.
 /// </summary>
-public static class FiscalApiClientFactory
+public sealed class FiscalApiClientFactory(HttpMessageHandler handler, TextWriter diagnostics, RetryPolicy retryPolicy)
 {
-    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(30);
+    public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
 
-    public static FiscalApiClient Create(GlobalSettings settings, TextWriter diagnostics) =>
-        new(CreateHttpClient(settings, diagnostics), RetryPolicy.Default);
+    /// <summary>
+    /// El handler de producción, uno por proceso. Usa el proxy del sistema por omisión (<c>UseProxy = true</c>).
+    /// No sigue redirecciones: un 3xx termina como <see cref="Errors.ApiException"/>, así X-API-KEY y
+    /// X-TENANT-KEY nunca viajan a otro host y un POST no se convierte en GET.
+    /// </summary>
+    public static SocketsHttpHandler CreateHandler() => new() { AllowAutoRedirect = false };
 
-    public static HttpClient CreateHttpClient(GlobalSettings settings, TextWriter diagnostics)
+    public FiscalApiClient Create(GlobalSettings settings, TimeSpan timeout)
     {
-        // SocketsHttpHandler usa el proxy del sistema por omisión (UseProxy = true), como pide el contrato.
-        HttpMessageHandler handler = new SocketsHttpHandler();
-        if (settings.Verbose)
-        {
-            handler = new VerboseLoggingHandler(diagnostics) { InnerHandler = handler };
-        }
-
-        var httpClient = new HttpClient(handler)
+        // Cada HttpClient envuelve el handler compartido sin adueñarse de él: lo libera Program al salir.
+        var pipeline = settings.Verbose ? new VerboseLoggingHandler(diagnostics) { InnerHandler = handler } : handler;
+        var httpClient = new HttpClient(pipeline, disposeHandler: false)
         {
             BaseAddress = settings.Environment.BaseAddress,
-            Timeout = RequestTimeout
+            Timeout = timeout
         };
         httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("fiscalapi-cli", CliVersion.Current));
-        return httpClient;
+        return new FiscalApiClient(httpClient, retryPolicy);
     }
 }

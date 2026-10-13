@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -10,40 +11,50 @@ namespace FiscalApi.Cli.Tests.Http;
 /// </summary>
 public sealed class StubHttpMessageHandler : HttpMessageHandler
 {
-    private readonly Queue<Func<HttpRequestMessage, HttpResponseMessage>> _responses = new();
+    private readonly Queue<Func<CancellationToken, Task<HttpResponseMessage>>> _responses = new();
 
     public List<HttpRequestMessage> Requests { get; } = [];
 
     public StubHttpMessageHandler RespondJson(HttpStatusCode status, string json, int times = 1) =>
-        Enqueue(times, _ => new HttpResponseMessage(status)
-        {
-            Content = new StringContent(json, Encoding.UTF8, "application/json")
-        });
+        Respond(() => Json(status, json), times);
 
     /// <summary>Como el 502/503 de nginx: un cuerpo que no es JSON.</summary>
     public StubHttpMessageHandler RespondHtml(HttpStatusCode status, string html, int times = 1) =>
-        Enqueue(times, _ => new HttpResponseMessage(status)
+        Respond(() => new HttpResponseMessage(status)
         {
             Content = new StringContent(html, Encoding.UTF8, "text/html")
-        });
+        }, times);
 
-    public StubHttpMessageHandler RespondTooManyRequests(TimeSpan retryAfter) =>
-        Enqueue(_ =>
+    public StubHttpMessageHandler RespondWithRetryAfter(HttpStatusCode status, RetryConditionHeaderValue retryAfter) =>
+        Respond(() =>
         {
-            var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests)
-            {
-                Content = new StringContent("""{"succeeded":false,"message":"Demasiadas solicitudes"}""", Encoding.UTF8, "application/json")
-            };
-            response.Headers.RetryAfter = new RetryConditionHeaderValue(retryAfter);
+            var response = Json(status, """{"succeeded":false,"message":"Intenta más tarde"}""");
+            response.Headers.RetryAfter = retryAfter;
             return response;
         });
 
-    public StubHttpMessageHandler FailWithNetworkError(int times = 1) =>
-        Enqueue(times, _ => throw new HttpRequestException("Conexión rechazada."));
+    public StubHttpMessageHandler Respond(Func<HttpResponseMessage> createResponse, int times = 1) =>
+        Enqueue(times, _ => Task.FromResult(createResponse()));
 
-    private StubHttpMessageHandler Enqueue(Func<HttpRequestMessage, HttpResponseMessage> response) => Enqueue(1, response);
+    public StubHttpMessageHandler FailWithNetworkError(
+        HttpRequestError error = HttpRequestError.ConnectionError, int times = 1) =>
+        Enqueue(times, _ => Task.FromException<HttpResponseMessage>(
+            new HttpRequestException(error, $"Falla de red simulada ({error}).")));
 
-    private StubHttpMessageHandler Enqueue(int times, Func<HttpRequestMessage, HttpResponseMessage> response)
+    /// <summary>Una API que no responde: el request termina solo cuando alguien cancela su token.</summary>
+    public StubHttpMessageHandler NeverRespond() =>
+        Enqueue(1, async cancellationToken =>
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            throw new UnreachableException();
+        });
+
+    private static HttpResponseMessage Json(HttpStatusCode status, string json) => new(status)
+    {
+        Content = new StringContent(json, Encoding.UTF8, "application/json")
+    };
+
+    private StubHttpMessageHandler Enqueue(int times, Func<CancellationToken, Task<HttpResponseMessage>> response)
     {
         for (var i = 0; i < times; i++)
         {
@@ -56,11 +67,8 @@ public sealed class StubHttpMessageHandler : HttpMessageHandler
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         Requests.Add(request);
-        if (!_responses.TryDequeue(out var respond))
-        {
-            throw new InvalidOperationException($"Request no esperado: {request.Method} {request.RequestUri}.");
-        }
-
-        return Task.FromResult(respond(request));
+        return _responses.TryDequeue(out var respond)
+            ? respond(cancellationToken)
+            : throw new InvalidOperationException($"Request no esperado: {request.Method} {request.RequestUri}.");
     }
 }

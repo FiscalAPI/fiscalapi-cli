@@ -13,11 +13,14 @@ namespace FiscalApi.Cli;
 public sealed class CliApplication
 {
     private readonly RootCommand _rootCommand;
+    private readonly GlobalOptions _globalOptions;
     private readonly CliConsole _console;
     private readonly InvocationConfiguration _invocation;
+    private readonly InvocationConfiguration _jsonInvocation;
 
     public CliApplication(GlobalOptions globalOptions, IReadOnlyList<Command> commands, CliConsole console)
     {
+        _globalOptions = globalOptions;
         _console = console;
         _rootCommand = new RootCommand("CLI de FiscalAPI: webhooks y eventos desde la terminal.");
         globalOptions.AddTo(_rootCommand);
@@ -35,15 +38,10 @@ public sealed class CliApplication
         // Sin subcomando, la ayuda: es lo que la persona necesita y no es un error.
         _rootCommand.SetAction((parseResult, _) => Task.FromResult(new HelpAction().Invoke(parseResult)));
 
-        _invocation = new InvocationConfiguration
-        {
-            Output = console.Out,
-            Error = console.Error,
-            // Los errores los atrapa RunAsync, con los códigos de salida del contrato.
-            EnableDefaultExceptionHandler = false,
-            // Ctrl+C lo maneja Program y llega aquí como el token de RunAsync.
-            ProcessTerminationTimeout = null
-        };
+        _invocation = CreateInvocation(output: console.Out, console.Error);
+        // Con --json, el texto que genera System.CommandLine (la ayuda) va a stderr: stdout es solo para JSON.
+        // Los comandos escriben sus datos en CliConsole.Out, que no cambia.
+        _jsonInvocation = CreateInvocation(output: console.Error, console.Error);
     }
 
     public async Task<int> RunAsync(IReadOnlyList<string> args, CancellationToken cancellationToken)
@@ -56,7 +54,8 @@ public sealed class CliApplication
 
         try
         {
-            return await parseResult.InvokeAsync(_invocation, cancellationToken);
+            var invocation = _globalOptions.Read(parseResult).Json ? _jsonInvocation : _invocation;
+            return await parseResult.InvokeAsync(invocation, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -91,12 +90,22 @@ public sealed class CliApplication
         return ExitCodes.Usage;
     }
 
-    // Síncrona como la acción integrada de --version que reemplaza.
-    private sealed class PrintVersionAction : SynchronousCommandLineAction
+    private static InvocationConfiguration CreateInvocation(TextWriter output, TextWriter error) => new()
     {
-        public override int Invoke(ParseResult parseResult)
+        Output = output,
+        Error = error,
+        // Los errores los atrapa RunAsync, con los códigos de salida del contrato.
+        EnableDefaultExceptionHandler = false,
+        // Ctrl+C lo maneja Program y llega aquí como el token de RunAsync.
+        ProcessTerminationTimeout = null
+    };
+
+    // Asíncrona como el resto de las acciones: System.CommandLine pide no mezclar acciones sync y async.
+    private sealed class PrintVersionAction : AsynchronousCommandLineAction
+    {
+        public override async Task<int> InvokeAsync(ParseResult parseResult, CancellationToken cancellationToken)
         {
-            parseResult.InvocationConfiguration.Output.WriteLine(CliVersion.Current);
+            await parseResult.InvocationConfiguration.Output.WriteLineAsync(CliVersion.Current.AsMemory(), cancellationToken);
             return ExitCodes.Success;
         }
     }

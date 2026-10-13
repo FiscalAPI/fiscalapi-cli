@@ -18,8 +18,8 @@ public sealed class FiscalApiClient(HttpClient httpClient, RetryPolicy retryPoli
     {
         using var response = await SendAsync(
             () => retryPolicy.SendAsync(httpClient, () => new HttpRequestMessage(HttpMethod.Get, path), cancellationToken),
-            cancellationToken);
-        return await ReadDataAsync(response, responseType, cancellationToken);
+            cancellationToken).ConfigureAwait(false);
+        return await ReadDataAsync(response, responseType, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Un POST no se reintenta: repetirlo podría crear el recurso dos veces.</summary>
@@ -34,8 +34,9 @@ public sealed class FiscalApiClient(HttpClient httpClient, RetryPolicy retryPoli
         {
             Content = JsonContent.Create(body, requestType)
         };
-        using var response = await SendAsync(() => httpClient.SendAsync(request, cancellationToken), cancellationToken);
-        return await ReadDataAsync(response, responseType, cancellationToken);
+        using var response = await SendAsync(() => httpClient.SendAsync(request, cancellationToken), cancellationToken)
+            .ConfigureAwait(false);
+        return await ReadDataAsync(response, responseType, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<HttpResponseMessage> SendAsync(
@@ -43,12 +44,14 @@ public sealed class FiscalApiClient(HttpClient httpClient, RetryPolicy retryPoli
     {
         try
         {
-            return await send();
+            return await send().ConfigureAwait(false);
         }
         catch (HttpRequestException exception)
         {
             throw new NetworkException($"No se pudo conectar con {httpClient.BaseAddress}: {exception.Message}", exception);
         }
+        // HttpClient reporta su timeout como TaskCanceledException sin que el token de quien llama se haya
+        // cancelado. Si el token sí se canceló (Ctrl+C), la excepción sigue su camino hasta el código 130.
         catch (TaskCanceledException exception) when (!cancellationToken.IsCancellationRequested)
         {
             throw new NetworkException(
@@ -59,32 +62,34 @@ public sealed class FiscalApiClient(HttpClient httpClient, RetryPolicy retryPoli
     private static async Task<T?> ReadDataAsync<T>(
         HttpResponseMessage response, JsonTypeInfo<ApiResponse<T>> responseType, CancellationToken cancellationToken)
     {
-        // Un error se lee sin "data": su forma no tiene por qué coincidir con T y no debe ocultar el mensaje.
         if (!response.IsSuccessStatusCode)
         {
-            var error = await TryReadAsync(response, FiscalApiJsonContext.Default.ApiResponse, cancellationToken);
-            throw error is null
-                ? ApiException.UnexpectedResponse(response.StatusCode)
-                : ApiException.FromEnvelope(response.StatusCode, error);
+            throw await ToApiExceptionAsync(response, cancellationToken).ConfigureAwait(false);
         }
 
-        var envelope = await TryReadAsync(response, responseType, cancellationToken)
+        // En un 2xx el contrato es nuestro: un JsonException aquí es un defecto del CLI y sube tal cual.
+        var envelope = await response.Content.ReadFromJsonAsync(responseType, cancellationToken).ConfigureAwait(false)
             ?? throw ApiException.UnexpectedResponse(response.StatusCode);
         return envelope.Succeeded ? envelope.Data : throw ApiException.FromEnvelope(response.StatusCode, envelope);
     }
 
-    // Un 502/503 de nginx trae HTML o nada: eso es una respuesta inesperada, no un fallo del CLI.
-    private static async Task<TEnvelope?> TryReadAsync<TEnvelope>(
-        HttpResponseMessage response, JsonTypeInfo<TEnvelope> envelopeType, CancellationToken cancellationToken)
-        where TEnvelope : ApiResponse
+    /// <summary>
+    /// Un error se lee sin <c>data</c>, cuya forma no tiene por qué coincidir con la del éxito. Un cuerpo que
+    /// no es JSON (el 502/503 en HTML de nginx, un 3xx sin cuerpo) es una respuesta inesperada, no un fallo del CLI.
+    /// </summary>
+    private static async Task<ApiException> ToApiExceptionAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         try
         {
-            return await response.Content.ReadFromJsonAsync(envelopeType, cancellationToken);
+            var envelope = await response.Content
+                .ReadFromJsonAsync(FiscalApiJsonContext.Default.ApiResponse, cancellationToken).ConfigureAwait(false);
+            return envelope is null
+                ? ApiException.UnexpectedResponse(response.StatusCode)
+                : ApiException.FromEnvelope(response.StatusCode, envelope);
         }
         catch (JsonException)
         {
-            return null;
+            return ApiException.UnexpectedResponse(response.StatusCode);
         }
     }
 }

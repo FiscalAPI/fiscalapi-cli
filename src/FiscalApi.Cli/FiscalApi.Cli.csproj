@@ -4,6 +4,7 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>fiscalapi</AssemblyName>
     <RootNamespace>FiscalApi.Cli</RootNamespace>
+    <PublishAot>true</PublishAot>
     <Version>0.1.0</Version>
     <Product>FiscalAPI CLI</Product>
     <Company>FiscalAPI</Company>
