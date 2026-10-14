@@ -142,7 +142,7 @@ timestamp, la firma verifica; si cambias un carácter del cuerpo, de la firma o 
 | `webhook-signature` | `v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE=` |
 
 La forma del evento y la verificación a mano en cada lenguaje están en la
-[guía de webhooks de FiscalAPI](https://docs.fiscalapi.com/webhooks).
+[guía de webhooks de FiscalAPI](https://docs.fiscalapi.com/webhooks-info).
 
 ## Conexión y sesiones
 
