@@ -64,8 +64,8 @@ fiscalapi trigger invoice.canceled
 ```
 
 Verifica la firma de cada entrega en tu servidor con el secreto `whsec_…` que muestra `listen` y el `Verify` del SDK de
-tu lenguaje ([cómo](docs/listen.md#verificar-la-firma-en-tu-servidor-local)). `fiscalapi trigger` llega en una
-versión próxima ([detalles](docs/trigger.md)).
+tu lenguaje ([cómo](docs/listen.md#verificar-la-firma-en-tu-servidor-local)). `fiscalapi trigger` solo funciona en el
+ambiente de pruebas ([detalles](docs/trigger.md)).
 
 ## Documentación
 
@@ -75,7 +75,7 @@ versión próxima ([detalles](docs/trigger.md)).
 | [Autenticación](docs/autenticacion.md) | `login`/`logout`, almacén de credenciales, variables de entorno, ambientes y CI. |
 | [`fiscalapi listen`](docs/listen.md) | Recibir eventos en local: opciones, firma, reconexión y salida `--json`. |
 | [Webhooks y eventos](docs/webhooks-y-eventos.md) | `webhooks list/retrieve/create/update/delete/rotate-secret` y `events list/retrieve/resend`. |
-| [`fiscalapi trigger`](docs/trigger.md) | Eventos de prueba. |
+| [`fiscalapi trigger`](docs/trigger.md) | Eventos de prueba hacia tu escucha o un webhook: tipos, opciones y errores. |
 | [Salida y códigos](docs/salida-y-codigos.md) | stdout/stderr, `--json`, `--verbose` y códigos de salida. |
 | [Solución de problemas](docs/solucion-de-problemas.md) | Errores frecuentes con su causa y remedio. |
 

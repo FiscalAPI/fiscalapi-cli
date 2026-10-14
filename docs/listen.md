@@ -43,7 +43,8 @@ Una entrega lenta no frena a las demás: se reenvían hasta 16 a la vez, y las d
 **No hay reintentos**: si tu servidor responde un error, la entrega queda con ese resultado; vuelve a pedirla con
 [`fiscalapi events resend`](webhooks-y-eventos.md#reenviar-un-evento).
 
-Para disparar un evento de prueba hacia tu escucha, usa [`fiscalapi trigger`](trigger.md) en otra terminal.
+Para disparar un evento de prueba hacia tu escucha, usa [`fiscalapi trigger`](trigger.md) en otra terminal. Ese
+evento llega aunque `--events` no incluya su tipo.
 
 ## Opciones
 

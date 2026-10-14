@@ -14,4 +14,7 @@ public static class WebhookEventView
 
     public static void WriteResend(TextWriter output, WebhookEventResend resend) =>
         output.WriteLine($"Reenvío creado: entrega {resend.DeliveryId} al webhook {resend.WebhookId}.");
+
+    public static void WriteTrigger(TextWriter output, WebhookEventTrigger trigger) =>
+        output.WriteLine($"Evento disparado: {trigger.EventId} al webhook {trigger.WebhookId}.");
 }

@@ -11,6 +11,7 @@
 | `Secreto de firma: whsec_…` de `create` y `rotate-secret` | El aviso de guardar el secreto |
 | El secreto de `listen --print-secret` | Los prompts y mensajes de `login` y `logout` |
 | `Reenvío creado: …` de `events resend` | La confirmación de `webhooks delete` y `Webhook … borrado.` |
+| `Evento disparado: …` de `trigger` | |
 | `--version` y `--help` (sin `--json`) | El detalle HTTP de `--verbose` y el aviso de versión nueva |
 
 ```bash
@@ -24,7 +25,7 @@ Con `--json`, **stdout trae solo JSON** y todo lo demás va a stderr:
 
 | Comando | stdout con `--json` |
 |---|---|
-| `webhooks …`, `events list`, `events resend` | El `data` de la respuesta de la API, sin cambios. |
+| `webhooks …`, `events list`, `events resend`, `trigger` | El `data` de la respuesta de la API, sin cambios. |
 | `events retrieve` | El evento tal como se entregó (igual que sin `--json`). |
 | `listen` | Un objeto JSON por entrega, uno por línea (JSON Lines). Ver [listen](listen.md#salida-con---json). |
 | `listen --print-secret` | `{"secret":"whsec_…"}` |
@@ -73,7 +74,7 @@ reenvíos de `listen` a tu servidor.
 | Código | Significado | Causas típicas |
 |---|---|---|
 | 0 | Éxito | El comando terminó bien. También `logout` sin nada guardado y `webhooks delete` cuando respondes "no". |
-| 1 | Error de la API o de la red | 401 (credenciales), 403 (sin `Webhooks.Manage`), 404, 400 de validación, 5xx; la API no respondió; `listen` reemplazado por otra sesión (409); el almacén de credenciales está bloqueado; editar tu escucha de CLI. |
+| 1 | Error de la API o de la red | 401 (credenciales), 403 (sin `Webhooks.Manage`), 404, 400 de validación, 5xx; la API no respondió; `listen` reemplazado por otra sesión (409); `trigger` en producción (403) o sin `listen` abierto (409); el almacén de credenciales está bloqueado; editar tu escucha de CLI. |
 | 2 | Error de uso | Opción o argumento inválido; falta de credenciales; solo una de `FISCALAPI_API_KEY`/`FISCALAPI_TENANT_KEY`; no hay almacén de credenciales; `delete` sin `--yes` en un script. |
 | 130 | Cancelado | Ctrl+C. |
 

@@ -55,6 +55,18 @@ public sealed class EventsApi(FiscalApiClient client)
         return ApiData.Required(data);
     }
 
+    /// <summary>
+    /// <c>POST /events/trigger</c>: 202 con el evento sintético y su único destino (D-27). La API decide si el ambiente lo
+    /// permite (solo Development y Test) y si el tipo existe.
+    /// </summary>
+    public async Task<JsonElement> TriggerAsync(TriggerWebhookEventRequest request, CancellationToken cancellationToken) =>
+        ApiData.Required(await client.PostAsync(
+            $"{EventsPath}/trigger",
+            request,
+            FiscalApiJsonContext.Default.TriggerWebhookEventRequest,
+            FiscalApiJsonContext.Default.ApiResponseJsonElement,
+            cancellationToken).ConfigureAwait(false));
+
     private static string EventPath(string id) => $"{EventsPath}/{Uri.EscapeDataString(id)}";
 
     private static string? Utc(DateTimeOffset? instant) =>

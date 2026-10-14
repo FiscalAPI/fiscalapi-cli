@@ -1,39 +1,108 @@
 # `fiscalapi trigger`
 
-> **Disponible desde la versión que lo incluya.** Esta página describe la sintaxis prevista; el comando todavía no está
-> en el CLI. Revisa `fiscalapi --help` en tu versión.
+Dispara un evento de prueba y lo entrega a tu escucha de [`fiscalapi listen`](listen.md) o a un webhook. Sirve para
+probar tu receptor sin timbrar, cancelar ni descargar nada real. Solo funciona en el ambiente de pruebas.
 
-`trigger` le pide a FiscalAPI que genere un evento de prueba y lo entregue a un solo destino: tu escucha de
-[`fiscalapi listen`](listen.md) o el webhook que indiques. Es el equivalente de
-[`stripe trigger`](https://docs.stripe.com/cli/trigger).
-
-```bash
-# Terminal 1
-fiscalapi listen --forward-to http://localhost:3000/webhooks
-
-# Terminal 2
-fiscalapi trigger invoice.canceled
-```
-
-## Sintaxis prevista
+## Uso
 
 ```text
 fiscalapi trigger <type> [--related-object-id <id>] [--person-id <id>] [--webhook <id>]
 ```
 
-| Argumento u opción | Uso |
+Requiere una API key con el permiso `Webhooks.Manage` ([Autenticación](autenticacion.md)).
+
+## Argumentos
+
+| Argumento | Descripción |
 |---|---|
-| `<type>` | Tipo de evento: `invoice.cancellation_requested`, `invoice.canceled`, `invoice.cancellation_rejected`, `download_request.completed`, `download_request.abandoned` o `download_rule.suspended`. Quien valida es la API. |
-| `--related-object-id <id>` | Id del recurso que irá en `data.relatedObject.id`. Sin él, la API usa un id sintético cuyo `GET` responde 404. |
-| `--person-id <id>` | Persona del evento (`personId`). |
-| `--webhook <id>` | Entrega el evento a ese webhook. Sin esta opción, va a tu escucha de CLI: `fiscalapi listen` tiene que estar abierto. |
+| `<type>` | Tipo de evento: `invoice.cancellation_requested`, `invoice.canceled`, `invoice.cancellation_rejected`, `download_request.completed`, `download_request.abandoned` o `download_rule.suspended`. |
 
-Llama a `POST /api/v4/events/trigger` e imprime el id del evento creado. El evento existe después en
-`fiscalapi events list` y se puede reenviar con `fiscalapi events resend`.
+`fiscalapi trigger --help` lista los tipos y, si usas
+[`dotnet-suggest`](https://learn.microsoft.com/dotnet/standard/commandline/how-to-enable-tab-completion), el tabulador
+los completa. Quien valida el tipo es la API, así que un tipo nuevo funciona sin actualizar el CLI. `webhook.test` no
+se dispara: lo manda la prueba de un webhook.
 
-## Solo en pruebas
+## Opciones
 
-La API solo genera eventos de prueba en el ambiente de pruebas (`https://test.fiscalapi.com`). Con `--live` el CLI no
-lo bloquea por su cuenta: muestra el 403 que responde la API y sale con 1.
+| Opción | Descripción |
+|---|---|
+| `--related-object-id <id>` | Id del recurso del evento (`data.relatedObject.id`), hasta 36 caracteres. Por omisión, un id sintético cuyo `GET` responde 404. |
+| `--person-id <id>` | Persona de tu cuenta dueña del recurso (`personId`). Por omisión, el evento va sin persona. |
+| `--webhook <id>` | Webhook que recibe el evento. Por omisión, tu escucha de `fiscalapi listen`, que debe estar abierta. |
+
+También acepta las opciones globales `--live`, `--api-base`, `--json` y `--verbose`
+([Salida y códigos](salida-y-codigos.md)).
+
+## Ejemplos
+
+Dispara un evento hacia tu escucha:
+
+```text
+# Terminal 1
+$ fiscalapi listen --forward-to http://localhost:3000/webhooks
+Listo. Tu secreto de firma es whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw (escucha wh_listener_0001)
+2026-10-12 09:47:46  --> invoice.canceled [3f9c1d2e-7b4a-4e8f-9a1b-2c3d4e5f6a7b] [200]
+
+# Terminal 2
+$ fiscalapi trigger invoice.canceled
+Evento disparado: 3f9c1d2e-7b4a-4e8f-9a1b-2c3d4e5f6a7b al webhook wh_listener_0001.
+```
+
+Dispara un evento hacia un webhook con URL, sin `listen`:
+
+```text
+$ fiscalapi trigger invoice.canceled --webhook 6f1c2a4e-0b7d-4c55-9a3e-1d2f3a4b5c6d
+Evento disparado: 3f9c1d2e-7b4a-4e8f-9a1b-2c3d4e5f6a7b al webhook 6f1c2a4e-0b7d-4c55-9a3e-1d2f3a4b5c6d.
+```
+
+Usa un recurso y una persona reales de tu cuenta, para que tu servidor pueda consultarlos:
+
+```bash
+fiscalapi trigger download_request.completed \
+  --related-object-id 8a1f0c2e-5d6b-4f7a-9c3e-1b2d3e4f5a6b \
+  --person-id 2e7d4c1b-9a8f-4e6d-b5c4-3a2b1c0d9e8f
+```
+
+Con `--json`, imprime el `data` de la respuesta sin cambios:
+
+```text
+$ fiscalapi trigger invoice.canceled --json
+{"eventId":"3f9c1d2e-7b4a-4e8f-9a1b-2c3d4e5f6a7b","webhookId":"wh_listener_0001"}
+```
+
+## Cómo se entrega
+
+- El evento tiene la forma y la firma de uno real: el recurso, `status` y `previousStatus` de su tipo (por ejemplo,
+  `invoice.canceled` pasa de `C` a `X`). Tu servidor lo verifica con el mismo código.
+- Llega **solo** al destino indicado, aunque no esté suscrito a ese tipo ni a esa persona (`--events` de `listen` o
+  los eventos del webhook). Tus demás webhooks no lo reciben.
+- Es **un solo intento**: si tu servidor falla, no se reintenta. Repítelo con `trigger` o con
+  [`fiscalapi events resend <eventId>`](webhooks-y-eventos.md#reenviar-un-evento).
+- Queda en `fiscalapi events list` como cualquier otro evento.
+- Con `--live`, la API responde 403. El CLI no lo bloquea por su cuenta: muestra el error y sale con 1.
+
+## Errores
+
+Salen con código 1 y el texto en stderr:
+
+```text
+$ fiscalapi trigger invoice.canceled --live
+Error: Sorry, it's not me, it's you.
+  Detalle: fiscalapi trigger no está disponible en producción; usa el ambiente de pruebas.
+  Código HTTP: 403
+  traceIdentifier (para soporte): 0HN7KQ2L0F3MA:00000002
+```
+
+| Código | Texto | Qué hacer |
+|---|---|---|
+| 409 | `La escucha de CLI no está conectada; ejecuta fiscalapi listen.` | Abre `fiscalapi listen` o usa `--webhook`. |
+| 400 | `El tipo de evento 'invoice.cancelled' no existe.` | Usa un tipo de la lista. |
+| 400 | `El endpoint de webhook está deshabilitado: habilítalo antes de probarlo.` | `fiscalapi webhooks update <id> --enabled`. |
+| 400 | `La persona especificada no es válida o no pertenece a tu organización.` | Revisa `--person-id`. |
+| 403 | `fiscalapi trigger no está disponible en producción; usa el ambiente de pruebas.` | Quita `--live`. |
+| 404 | `No such resource for the given Id: …` | Revisa `--webhook`: no existe, está dado de baja o no es tuyo. |
+| 429 | — | Demasiadas peticiones con la misma API key: espera y repite. |
+
+Más casos en [Solución de problemas](solucion-de-problemas.md#fiscalapi-trigger).
 
 Siguiente: [Salida y códigos de salida](salida-y-codigos.md).

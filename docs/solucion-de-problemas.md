@@ -157,6 +157,36 @@ Error: Sorry, it's not me, it's you.
 **Causa:** sin `--webhook`, el reenvío va a tu escucha de CLI, y no hay un `listen` abierto. **Remedio:** abre
 `fiscalapi listen` en otra terminal o usa `--webhook <id>`.
 
+## `fiscalapi trigger`
+
+### 403 `fiscalapi trigger no está disponible en producción`
+
+```text
+$ fiscalapi trigger invoice.canceled --live
+Error: Sorry, it's not me, it's you.
+  Detalle: fiscalapi trigger no está disponible en producción; usa el ambiente de pruebas.
+  Código HTTP: 403
+```
+
+**Causa:** los eventos de prueba solo existen en el ambiente de pruebas: en producción se confundirían con uno real.
+**Remedio:** quita `--live` y usa tus credenciales de pruebas.
+
+### 409 `La escucha de CLI no está conectada; ejecuta fiscalapi listen.`
+
+**Causa:** sin `--webhook`, el evento va a tu escucha de CLI, y no hay un `fiscalapi listen` abierto con tu persona.
+**Remedio:** abre `fiscalapi listen` en otra terminal y repite el `trigger`, o usa `--webhook <id>`.
+
+### 400 `El tipo de evento '…' no existe.`
+
+**Causa:** un tipo mal escrito (`invoice.cancelled` en lugar de `invoice.canceled`) o `webhook.test`, que no se
+dispara. **Remedio:** usa uno de los tipos de `fiscalapi trigger --help`.
+
+### El evento no llega a mi servidor
+
+**Causa:** `trigger` respondió `Evento disparado`, pero la entrega es de un solo intento: si tu servidor no respondió
+2xx, queda fallida y no se reintenta. **Remedio:** revisa la línea de `listen` (`[500]`, `[error: …]`) o el log de
+entregas del webhook en el dashboard, corrige y repite con `fiscalapi events resend <eventId>`.
+
 ## Instalación
 
 ### macOS bloquea el binario (Gatekeeper)

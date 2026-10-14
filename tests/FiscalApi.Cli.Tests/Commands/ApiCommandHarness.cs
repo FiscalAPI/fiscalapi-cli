@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using FiscalApi.Cli.Commands;
 using FiscalApi.Cli.Commands.Events;
 using FiscalApi.Cli.Commands.Webhooks;
 using FiscalApi.Cli.Credentials;
@@ -13,7 +14,7 @@ using FiscalApi.Cli.Tests.Updates;
 namespace FiscalApi.Cli.Tests.Commands;
 
 /// <summary>
-/// Corre <c>fiscalapi webhooks …</c> y <c>fiscalapi events …</c> con la misma composición que <c>Program</c>, sobre
+/// Corre <c>fiscalapi webhooks …</c>, <c>fiscalapi events …</c> y <c>fiscalapi trigger …</c> con la misma composición que <c>Program</c>, sobre
 /// la API simulada (<see cref="StubHttpMessageHandler"/>) y las credenciales de las variables de entorno.
 /// </summary>
 internal sealed class ApiCommandHarness
@@ -55,7 +56,8 @@ internal sealed class ApiCommandHarness
         Command[] commands =
         [
             new WebhooksCommand(globalOptions, apiClients, confirmation, console),
-            new EventsCommand(globalOptions, apiClients, console)
+            new EventsCommand(globalOptions, apiClients, console),
+            new TriggerCommand(globalOptions, apiClients, console)
         ];
 
         return new CliApplication(globalOptions, commands, console, NoUpdateCheck.Instance)

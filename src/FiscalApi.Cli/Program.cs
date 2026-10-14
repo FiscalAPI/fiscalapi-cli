@@ -55,6 +55,7 @@ try
         new LoginCommand(globalOptions, apiClients, credentialStore, secretReader, console),
         new LogoutCommand(globalOptions, credentialStore, console),
         new ListenCommand(globalOptions, apiClients, console, TimeProvider.System, ListenTimings.Default),
+        new TriggerCommand(globalOptions, apiClients, console),
         new WebhooksCommand(globalOptions, apiClients, confirmation, console),
         new EventsCommand(globalOptions, apiClients, console)
     ];

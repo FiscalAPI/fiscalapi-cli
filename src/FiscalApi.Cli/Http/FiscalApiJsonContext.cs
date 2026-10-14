@@ -27,4 +27,6 @@ namespace FiscalApi.Cli.Http;
 [JsonSerializable(typeof(PagedList<WebhookEventEnvelope>))]
 [JsonSerializable(typeof(ResendWebhookEventRequest))]
 [JsonSerializable(typeof(WebhookEventResend))]
+[JsonSerializable(typeof(TriggerWebhookEventRequest))]
+[JsonSerializable(typeof(WebhookEventTrigger))]
 public sealed partial class FiscalApiJsonContext : JsonSerializerContext;
