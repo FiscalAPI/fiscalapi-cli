@@ -85,7 +85,7 @@ $ fiscalapi webhooks list
 Error: Sorry, it's not me, it's you.
   Detalle: Invalid tenant key
   Código HTTP: 401
-  traceIdentifier (para soporte): 0HN7:00000042
+  traceIdentifier (para soporte): 4C2E9A7B1D3F5E608B9A0C1D2E3F4A5B
   Sugerencia: Ejecuta `fiscalapi login` o revisa las variables de entorno FISCALAPI_API_KEY y FISCALAPI_TENANT_KEY.
 ```
 

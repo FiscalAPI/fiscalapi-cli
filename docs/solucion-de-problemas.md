@@ -32,6 +32,7 @@ pruebas no sirven con `--live` y al revés).
 Error: Sorry, it's not me, it's you.
   Detalle: No tienes permiso para administrar webhooks.
   Código HTTP: 403
+  traceIdentifier (para soporte): …
 ```
 
 **Causa:** la persona de la API key no tiene el permiso `Webhooks.Manage`, que piden `listen`, `trigger`, `webhooks` y
@@ -152,6 +153,8 @@ con `fiscalapi events resend <eventId>`.
 ```text
 Error: Sorry, it's not me, it's you.
   Detalle: La escucha de CLI no está conectada; ejecuta fiscalapi listen.
+  Código HTTP: 409
+  traceIdentifier (para soporte): …
 ```
 
 **Causa:** sin `--webhook`, el reenvío va a tu escucha de CLI, y no hay un `listen` abierto. **Remedio:** abre
@@ -166,6 +169,7 @@ $ fiscalapi trigger invoice.canceled --live
 Error: Sorry, it's not me, it's you.
   Detalle: fiscalapi trigger no está disponible en producción; usa el ambiente de pruebas.
   Código HTTP: 403
+  traceIdentifier (para soporte): …
 ```
 
 **Causa:** los eventos de prueba solo existen en el ambiente de pruebas: en producción se confundirían con uno real.

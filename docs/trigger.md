@@ -90,7 +90,7 @@ $ fiscalapi trigger invoice.canceled --live
 Error: Sorry, it's not me, it's you.
   Detalle: fiscalapi trigger no está disponible en producción; usa el ambiente de pruebas.
   Código HTTP: 403
-  traceIdentifier (para soporte): 0HN7KQ2L0F3MA:00000002
+  traceIdentifier (para soporte): 8F3A2C1D9B7E4F60A5C3D2E1F0B9A877
 ```
 
 | Código | Texto | Qué hacer |
