@@ -97,7 +97,7 @@ Error: Sorry, it's not me, it's you.
 |---|---|---|
 | 409 | `La escucha de CLI no está conectada; ejecuta fiscalapi listen.` | Abre `fiscalapi listen` o usa `--webhook`. |
 | 400 | `El tipo de evento 'invoice.cancelled' no existe.` | Usa un tipo de la lista. |
-| 400 | `El endpoint de webhook está deshabilitado: habilítalo antes de probarlo.` | `fiscalapi webhooks update <id> --enabled`. |
+| 400 | `El webhook está deshabilitado: habilítalo antes de probarlo.` | `fiscalapi webhooks update <id> --enabled`. |
 | 400 | `La persona especificada no es válida o no pertenece a tu organización.` | Revisa `--person-id`. |
 | 403 | `fiscalapi trigger no está disponible en producción; usa el ambiente de pruebas.` | Quita `--live`. |
 | 403 | `No tienes permiso para administrar webhooks.` | Usa una API key con el permiso `Webhooks.Manage` ([detalles](solucion-de-problemas.md#403-sin-webhooksmanage)). |

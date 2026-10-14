@@ -14,6 +14,9 @@
 | `webhooks delete <id>` | `DELETE /api/v4/webhooks/{id}` | Da de baja un webhook y cierra sus entregas pendientes; su historial se conserva. |
 | `webhooks rotate-secret <id>` | `POST /api/v4/webhooks/{id}/rotate-secret` | Genera un secreto nuevo y lo imprime una sola vez. |
 
+El `<id>` de un webhook es un GUID: otro valor responde 404 con `Detalle: Not Found`, y un GUID que no es de tu cuenta,
+`No such resource for the given Id: …`.
+
 ### Listar webhooks
 
 ```text

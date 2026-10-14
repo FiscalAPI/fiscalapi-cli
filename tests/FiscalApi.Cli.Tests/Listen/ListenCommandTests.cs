@@ -642,7 +642,7 @@ public sealed class ListenCommandTests : IAsyncLifetime
     public async Task A_409_while_reopening_is_retried_with_backoff_instead_of_exiting()
     {
         _api.FailPoll(StatusCodes.Status410Gone, "La sesión de fiscalapi listen caducó; vuelve a abrirla.")
-            .FailOpen(StatusCodes.Status409Conflict, "Otro cambio a los endpoints de webhook está en curso; intenta de nuevo.")
+            .FailOpen(StatusCodes.Status409Conflict, "Otro cambio a los webhooks está en curso; intenta de nuevo.")
             .Deliver(new FakeDelivery("dlv_0001", "evt_0001", "invoice.canceled"));
 
         StartListen();
@@ -650,7 +650,7 @@ public sealed class ListenCommandTests : IAsyncLifetime
 
         Assert.Equal(3, _api.Opens.Count);
         Assert.Equal(FakeListenerApi.SessionId(2), Assert.Single(_api.Acks).SessionId);
-        Assert.Matches(@"No se pudo reabrir la sesión de escucha \(Otro cambio a los endpoints de webhook está en curso; " +
+        Assert.Matches(@"No se pudo reabrir la sesión de escucha \(Otro cambio a los webhooks está en curso; " +
                        @"intenta de nuevo\); reintentando en \d+(\.\d)? s\.", Error);
         Assert.False(_run!.IsCompleted, "listen terminó por el candado de la apertura.");
     }
