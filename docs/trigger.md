@@ -63,11 +63,14 @@ fiscalapi trigger download_request.completed \
   --person-id 2e7d4c1b-9a8f-4e6d-b5c4-3a2b1c0d9e8f
 ```
 
-Con `--json`, imprime el `data` de la respuesta sin cambios:
+Con `--json`, imprime el `data` de la respuesta sin cambios, con el formato indentado de la API:
 
 ```text
 $ fiscalapi trigger invoice.canceled --json
-{"eventId":"3f9c1d2e-7b4a-4e8f-9a1b-2c3d4e5f6a7b","webhookId":"9b2e7c4a-1d3f-4e6b-8a5c-0f1e2d3c4b5a"}
+{
+    "eventId": "3f9c1d2e-7b4a-4e8f-9a1b-2c3d4e5f6a7b",
+    "webhookId": "9b2e7c4a-1d3f-4e6b-8a5c-0f1e2d3c4b5a"
+  }
 ```
 
 ## Cómo se entrega
@@ -92,6 +95,20 @@ Error: Sorry, it's not me, it's you.
   Código HTTP: 403
   traceIdentifier (para soporte): 8F3A2C1D9B7E4F60A5C3D2E1F0B9A877
 ```
+
+Un 400 de validación pone el texto general en `Detalle:` y una línea `- <mensaje>` por cada regla que falló. Un tipo de
+evento que no existe sale así:
+
+```text
+$ fiscalapi trigger invoice.cancelled
+Error: Sorry, it's not me, it's you.
+  Detalle: One or more validation failures have occurred.
+  - El tipo de evento 'invoice.cancelled' no existe.
+  Código HTTP: 400
+  traceIdentifier (para soporte): …
+```
+
+Los demás 400 de la tabla traen su texto directo en `Detalle:`.
 
 | Código | Texto | Qué hacer |
 |---|---|---|
