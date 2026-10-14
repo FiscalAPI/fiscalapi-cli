@@ -22,6 +22,11 @@ pruebas no sirven con `--live` y al revés).
 
 ### 401 `Missing required http X-API-KEY.`
 
+**Causa:** la petición llegó sin el header `X-API-KEY`.
+**Remedio:** el mismo de arriba.
+
+### 401 `Invalid API KEY`
+
 **Causa:** la API key no es válida para ese ambiente (revocada, mal copiada o de otro ambiente).
 **Remedio:** el mismo de arriba. `fiscalapi login` valida las llaves antes de guardarlas:
 `Error: Las credenciales no son válidas para test.fiscalapi.com.`

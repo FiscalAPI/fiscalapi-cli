@@ -75,7 +75,7 @@ ambiente de pruebas ([detalles](docs/trigger.md)).
 | [Solución de problemas](docs/solucion-de-problemas.md) | Errores frecuentes con su causa y remedio. |
 
 `fiscalapi --help` y `fiscalapi <comando> --help` describen cada opción. La guía de webhooks de la API (forma del
-evento, firma, reintentos) está en [docs.fiscalapi.com/webhooks](https://docs.fiscalapi.com/webhooks).
+evento, firma, reintentos) está en [docs.fiscalapi.com/webhooks-info](https://docs.fiscalapi.com/webhooks-info).
 
 ## Desarrollo
 

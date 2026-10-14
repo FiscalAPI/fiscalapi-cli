@@ -25,7 +25,7 @@ Con `--json`, **stdout trae solo JSON** y todo lo demás va a stderr:
 | Comando | stdout con `--json` |
 |---|---|
 | `webhooks …`, `events list`, `events resend`, `trigger` | El `data` de la respuesta de la API, sin cambios. |
-| `events retrieve` | El evento tal como se entregó (igual que sin `--json`). |
+| `events retrieve` | El evento como lo devuelve la API (igual que sin `--json`). No es el cuerpo compacto que se entregó, así que no sirve para verificar una firma. |
 | `listen` | Un objeto JSON por entrega, uno por línea (JSON Lines). Ver [listen](listen.md#salida-con---json). |
 | `listen --print-secret` | `{"secret":"whsec_…"}` |
 | `login`, `logout` | Nada: sus mensajes van a stderr. |

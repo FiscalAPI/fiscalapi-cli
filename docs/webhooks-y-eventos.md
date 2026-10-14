@@ -51,10 +51,11 @@ Descripción  Producción
 Eventos      invoice.canceled, invoice.cancellation_requested
 Personas     2e7d4c1b-9a8f-4e6d-b5c4-3a2b1c0d9e8f, 7c3b2a1d-0e9f-4d8c-a7b6-5f4e3d2c1b0a
 Creado       2026-10-13T09:30:00.000
+Actualizado  2026-10-13T09:30:00.000
 ```
 
 Solo aparecen los campos con valor. Según el caso también verás `Motivo` y `Deshabilitado` (webhook deshabilitado),
-`Fallando desde`, `Persona de la escucha` y `Sesión vence` (escucha de CLI) y `Actualizado`.
+`Fallando desde`, `Persona de la escucha` y `Sesión vence` (escucha de CLI).
 
 ### Crear un webhook
 
@@ -68,13 +69,14 @@ Solo aparecen los campos con valor. Según el caso también verás `Motivo` y `D
 
 ```text
 $ fiscalapi webhooks create --url https://example.com/webhooks --events '*'
-ID        6f1c2a4e-0b7d-4c55-9a3e-1d2f3a4b5c6d
-Tipo      url
-Estado    enabled
-URL       https://example.com/webhooks
-Eventos   *
-Personas  todas
-Creado    2026-10-13T09:30:00.000
+ID           6f1c2a4e-0b7d-4c55-9a3e-1d2f3a4b5c6d
+Tipo         url
+Estado       enabled
+URL          https://example.com/webhooks
+Eventos      *
+Personas     todas
+Creado       2026-10-13T09:30:00.000
+Actualizado  2026-10-13T09:30:00.000
 
 Secreto de firma: whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw
 Guarda este secreto de firma. Lo usarás para verificar que los eventos vienen de FiscalAPI.
@@ -216,12 +218,27 @@ Error: --from debe ser una fecha ISO 8601 (p. ej. 2026-10-01 o 2026-10-01T08:00:
 
 ### Ver un evento
 
-`events retrieve` imprime el evento exactamente como lo entrega la API, con o sin `--json`. Su `id` es el del header
-`webhook-id` de sus entregas.
+`events retrieve` imprime el evento como lo devuelve la API, con o sin `--json`. Su `id` es el del header
+`webhook-id` de sus entregas. La API lo devuelve indentado y el cuerpo que recibe tu endpoint va compacto, así que esta
+salida no sirve para verificar una firma: verifica siempre con el cuerpo crudo que recibió tu endpoint.
 
 ```text
 $ fiscalapi events retrieve 0d6f5c1e-8a2b-4c3d-9e8f-7a6b5c4d3e2f
-{"id":"0d6f5c1e-8a2b-4c3d-9e8f-7a6b5c4d3e2f","type":"invoice.canceled","createdAt":"2026-10-12T15:47:46Z","personId":"2e7d4c1b-9a8f-4e6d-b5c4-3a2b1c0d9e8f","data":{"relatedObject":{"id":"c4d3e2f1-a0b9-4c8d-9e7f-6a5b4c3d2e1f","type":"invoice","url":"/api/v4/invoices/c4d3e2f1-a0b9-4c8d-9e7f-6a5b4c3d2e1f"},"status":"X","previousStatus":"C"}}
+{
+    "id": "0d6f5c1e-8a2b-4c3d-9e8f-7a6b5c4d3e2f",
+    "type": "invoice.canceled",
+    "createdAt": "2026-10-12T15:47:46Z",
+    "personId": "2e7d4c1b-9a8f-4e6d-b5c4-3a2b1c0d9e8f",
+    "data": {
+      "relatedObject": {
+        "id": "c4d3e2f1-a0b9-4c8d-9e7f-6a5b4c3d2e1f",
+        "type": "invoice",
+        "url": "/api/v4/invoices/c4d3e2f1-a0b9-4c8d-9e7f-6a5b4c3d2e1f"
+      },
+      "status": "X",
+      "previousStatus": "C"
+    }
+  }
 ```
 
 ### Reenviar un evento
@@ -243,7 +260,7 @@ descartar los ids que ya procesó.
 
 ## `--json`
 
-Con `--json`, cada comando imprime en stdout el `data` de la respuesta de la API, sin cambios:
+Con `--json`, cada comando imprime en stdout el `data` de la respuesta de la API, sin cambios y con su formato indentado:
 
 ```bash
 # Los ids de los webhooks habilitados
