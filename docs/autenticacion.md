@@ -1,8 +1,8 @@
 # Autenticación y ambientes
 
 Cada comando que llama a la API manda tu **API key** (header `X-API-KEY`) y tu **tenant key** (`X-TENANT-KEY`). El CLI
-las toma de las variables de entorno o, si no están, de las que guardó `fiscalapi login`. Nunca se aceptan como
-argumento de un comando, porque un argumento queda en el historial del shell y en la lista de procesos.
+las toma de las variables de entorno o, si no están, de las que guardó `fiscalapi login`. Ningún comando las acepta
+como argumento: quedarían en el historial del shell y en la lista de procesos.
 
 ## Ambientes
 
@@ -12,8 +12,8 @@ argumento de un comando, porque un argumento queda en el historial del shell y e
 | `--live` | `https://live.fiscalapi.com` | Producción. |
 | `--api-base <url>` | La que indiques | Otra URL base, p. ej. un back local. Gana sobre `--live`. |
 
-`--api-base` acepta solo URLs absolutas `http` o `https`, y `http` solo hacia el propio equipo (`localhost`,
-`127.0.0.1` o `::1`), porque las llaves viajan en headers:
+`--api-base` acepta solo URLs absolutas `http` o `https`. Como las llaves viajan en headers, `http` solo se permite hacia
+tu propio equipo (`localhost`, `127.0.0.1` o `::1`):
 
 ```text
 $ fiscalapi webhooks list --api-base http://fiscalapi.example.com
@@ -21,8 +21,8 @@ Error: --api-base con http solo se permite para localhost, 127.0.0.1 o ::1; usa 
 Usa `fiscalapi --help` para ver los comandos y opciones.
 ```
 
-Las credenciales se guardan **por ambiente**: una entrada por host (y puerto, si no es el de omisión). Las de
-`test.fiscalapi.com`, las de `live.fiscalapi.com` y las de `localhost:5001` son independientes.
+Las credenciales se guardan **por ambiente**, una entrada por host (y puerto, si no es el de omisión): las de
+`test.fiscalapi.com`, `live.fiscalapi.com` y `localhost:5001` son independientes.
 
 ## `fiscalapi login`
 
@@ -33,28 +33,18 @@ Tenant key:
 Listo. Credenciales guardadas para test.fiscalapi.com.
 ```
 
-`login`:
+`login` pide la API key y la tenant key sin mostrar lo que escribes, las valida con `GET /api/v4/me/features` y las
+guarda en el almacén de credenciales del sistema. Para producción, usa `fiscalapi login --live`. Los prompts y los
+mensajes van a stderr.
 
-1. pide la API key y la tenant key sin mostrar lo que escribes;
-2. las valida contra la API con `GET /api/v4/me/features`;
-3. las guarda en el almacén de credenciales del sistema, en la entrada del ambiente.
+| Caso | Resultado |
+|---|---|
+| La API rechaza las llaves (401) | No guarda nada y sale con 1: `Error: Las credenciales no son válidas para test.fiscalapi.com.` |
+| Otro error de la API | No guarda nada y muestra el error de la API (salida 1). |
+| La persona de la API key no tiene `Webhooks.Manage` | Guarda las llaves y avisa: `Esta API key no tiene el permiso Webhooks.Manage; listen, trigger y webhooks responderán 403.` |
+| Llave vacía, de más de 200 caracteres o con caracteres que no son ASCII visible | Error de uso (salida 2): `La API key está vacía, es demasiado larga o tiene caracteres no válidos.` |
 
-Para producción usa `fiscalapi login --live`. Los prompts y los mensajes van a stderr.
-
-Si las llaves no son válidas para ese ambiente, no se guarda nada y sale con 1:
-
-```text
-Error: Las credenciales no son válidas para test.fiscalapi.com.
-```
-
-Si la API key es válida pero su persona no tiene el permiso `Webhooks.Manage`, `login` las guarda y avisa:
-
-```text
-Esta API key no tiene el permiso Webhooks.Manage; listen, trigger y webhooks responderán 403.
-```
-
-Cada llave admite hasta 200 caracteres ASCII visibles; los espacios alrededor se ignoran. Una llave vacía o con otros
-caracteres es un error de uso (salida 2): `La API key está vacía, es demasiado larga o tiene caracteres no válidos.`
+Los espacios alrededor de cada llave se ignoran.
 
 ### Sin terminal: stdin
 
@@ -69,12 +59,12 @@ printf '%s\n%s\n' "$API_KEY" "$TENANT_KEY" | fiscalapi login
 como "UTF-8 con BOM" también funciona.
 
 > **Terminales sin ConPTY.** En mintty (la terminal de Git Bash en Windows) y en `docker run -i` sin `-t`, la entrada
-> no llega como una terminal: `login` la trata como redirigida, sin prompt y **mostrando lo que escribes**. Usa Windows
+> no llega como terminal: `login` la trata como redirigida, sin prompt y **mostrando lo que escribes**. Usa Windows
 > Terminal o PowerShell, `docker run -it`, o las variables de entorno.
 
 ## `fiscalapi logout`
 
-Borra la entrada del ambiente y siempre termina con 0, aunque no hubiera nada guardado:
+Borra la entrada del ambiente. Termina con 0 aunque no hubiera nada guardado:
 
 ```text
 $ fiscalapi logout
@@ -83,7 +73,9 @@ $ fiscalapi logout --live
 No había credenciales guardadas para live.fiscalapi.com.
 ```
 
-`logout` es local: no llama a la API ni revoca la API key. Para revocarla, hazlo desde el dashboard de FiscalAPI.
+Si el almacén está bloqueado o falla, la entrada puede seguir ahí: `logout` lo dice y sale con 1.
+
+`logout` es local: no llama a la API ni revoca la API key. Para revocarla, usa el dashboard de FiscalAPI.
 
 ## Dónde se guardan
 
@@ -93,7 +85,7 @@ No había credenciales guardadas para live.fiscalapi.com.
 | macOS | Llavero de sesión ("Acceso a Llaveros") | Contraseña genérica con servicio `fiscalapi-cli`, cuenta `<host>` y nombre `FiscalAPI CLI (<host>)` |
 | Linux | Secret Service por libsecret (GNOME Keyring o compatible) | Secreto `FiscalAPI CLI (<host>)` con los atributos `service=fiscalapi-cli` y `host=<host>` |
 
-No hay respaldo en un archivo: si el sistema no tiene almacén, `login` no guarda nada en texto plano.
+No hay respaldo en archivo: si el sistema no tiene almacén, `login` no guarda nada en texto plano.
 
 ## Variables de entorno
 
@@ -102,27 +94,26 @@ No hay respaldo en un archivo: si el sistema no tiene almacén, `login` no guard
 | `FISCALAPI_API_KEY` | Tu API key. |
 | `FISCALAPI_TENANT_KEY` | Tu tenant key. |
 
-**Precedencia:** si las dos están definidas, ganan sobre lo que guardó `login`, para cualquier ambiente. Se definen
-**juntas**; con una sola, el CLI no adivina y sale con 2:
+Si las dos están definidas, ganan sobre lo que guardó `login` y valen para **cualquier** ambiente: con llaves de
+pruebas, no agregues `--live` o la API responderá 401. Una variable vacía cuenta como no definida.
+
+Se definen **juntas**. Con una sola, el CLI no la completa con lo guardado y sale con 2:
 
 ```text
 Error: Define FISCALAPI_API_KEY y FISCALAPI_TENANT_KEY juntas; solo está definida FISCALAPI_API_KEY.
 ```
 
-Sin variables y sin nada guardado para el ambiente:
+Sin variables y sin nada guardado para el ambiente, también sale con 2:
 
 ```text
 Error: No hay credenciales para test.fiscalapi.com. Ejecuta `fiscalapi login` o define FISCALAPI_API_KEY y FISCALAPI_TENANT_KEY.
 ```
 
-Las variables valen para **cualquier** ambiente al que apunte el comando. Si usas llaves de pruebas en las variables,
-no agregues `--live`: la API las rechazaría con 401.
-
 ## Casos especiales
 
 ### CI
 
-En un CI no hay almacén ni persona que escriba: define las dos variables como secretos del CI y no uses `login`.
+En un CI no hay almacén ni nadie que escriba: define las dos variables como secretos del CI y no uses `login`.
 
 ```yaml
 # GitHub Actions
@@ -131,12 +122,12 @@ env:
   FISCALAPI_TENANT_KEY: ${{ secrets.FISCALAPI_TENANT_KEY }}
 ```
 
-Usa `--json` para procesar la salida y revisa el código de salida ([Salida y códigos](salida-y-codigos.md)).
-El aviso de versión nueva no corre con `CI=true`.
+Usa `--json` para procesar la salida y revisa el código de salida ([Salida y códigos](salida-y-codigos.md)). Con `CI`
+definida, el aviso de versión nueva no corre ([Instalación](instalacion.md#aviso-de-versión-nueva)).
 
 ### WSL, servidores y contenedores
 
-En Linux sin Secret Service (WSL, un servidor sin sesión gráfica, un contenedor) `login` sale con 2 antes de pedir
+En Linux sin Secret Service (WSL, un servidor sin sesión gráfica, un contenedor), `login` sale con 2 antes de pedir
 las llaves:
 
 ```text
@@ -144,9 +135,9 @@ Error: No hay un almacén de credenciales disponible en este sistema. Define FIS
   Detalle: No se encontró libsecret-1.so.0 (paquete libsecret-1-0 o libsecret).
 ```
 
-El `Detalle` cambia según la causa (falta libsecret o no hay Secret Service en la sesión de D-Bus). Define las
-variables de entorno. Si quieres el almacén, instala libsecret (`libsecret-1-0` en Debian/Ubuntu, `libsecret`
-en RHEL/Fedora) y un servicio como GNOME Keyring dentro de una sesión de D-Bus.
+El `Detalle` cambia según la causa: falta libsecret o no hay Secret Service en la sesión de D-Bus. Usa las variables
+de entorno. Si quieres el almacén, instala libsecret (`libsecret-1-0` en Debian/Ubuntu, `libsecret` en RHEL/Fedora) y
+un servicio como GNOME Keyring dentro de una sesión de D-Bus.
 
 ### Almacén bloqueado
 
@@ -159,11 +150,11 @@ Error: El almacén de credenciales del sistema existe, pero está bloqueado o no
 ```
 
 Desbloquéalo (en macOS, abre "Acceso a Llaveros"; en Linux, inicia sesión en el escritorio o desbloquea el llavero) y
-vuelve a intentarlo, o usa las variables de entorno.
+repite el comando, o usa las variables de entorno.
 
 ### Entrada guardada ilegible
 
-Si la entrada guardada se dañó:
+Si la entrada guardada se dañó, el comando sale con 1:
 
 ```text
 Error: La entrada guardada para test.fiscalapi.com no se puede leer. Ejecuta `fiscalapi logout` y luego `fiscalapi login`.

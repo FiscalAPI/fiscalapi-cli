@@ -40,12 +40,12 @@ Dispara un evento hacia tu escucha:
 ```text
 # Terminal 1
 $ fiscalapi listen --forward-to http://localhost:3000/webhooks
-Listo. Tu secreto de firma es whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw (escucha wh_listener_0001)
+Listo. Tu secreto de firma es whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw (escucha 9b2e7c4a-1d3f-4e6b-8a5c-0f1e2d3c4b5a)
 2026-10-12 09:47:46  --> invoice.canceled [3f9c1d2e-7b4a-4e8f-9a1b-2c3d4e5f6a7b] [200]
 
 # Terminal 2
 $ fiscalapi trigger invoice.canceled
-Evento disparado: 3f9c1d2e-7b4a-4e8f-9a1b-2c3d4e5f6a7b al webhook wh_listener_0001.
+Evento disparado: 3f9c1d2e-7b4a-4e8f-9a1b-2c3d4e5f6a7b al webhook 9b2e7c4a-1d3f-4e6b-8a5c-0f1e2d3c4b5a.
 ```
 
 Dispara un evento hacia un webhook con URL, sin `listen`:
@@ -67,7 +67,7 @@ Con `--json`, imprime el `data` de la respuesta sin cambios:
 
 ```text
 $ fiscalapi trigger invoice.canceled --json
-{"eventId":"3f9c1d2e-7b4a-4e8f-9a1b-2c3d4e5f6a7b","webhookId":"wh_listener_0001"}
+{"eventId":"3f9c1d2e-7b4a-4e8f-9a1b-2c3d4e5f6a7b","webhookId":"9b2e7c4a-1d3f-4e6b-8a5c-0f1e2d3c4b5a"}
 ```
 
 ## Cómo se entrega
@@ -77,9 +77,9 @@ $ fiscalapi trigger invoice.canceled --json
 - Llega **solo** al destino indicado, aunque no esté suscrito a ese tipo ni a esa persona (`--events` de `listen` o
   los eventos del webhook). Tus demás webhooks no lo reciben.
 - Es **un solo intento**: si tu servidor falla, no se reintenta. Repítelo con `trigger` o con
-  [`fiscalapi events resend <eventId>`](webhooks-y-eventos.md#reenviar-un-evento).
+  [`fiscalapi events resend <eventId> [--webhook <id>]`](webhooks-y-eventos.md#reenviar-un-evento), con el mismo
+  `--webhook` del `trigger`: sin él, el reenvío va a tu escucha de `listen`.
 - Queda en `fiscalapi events list` como cualquier otro evento.
-- Con `--live`, la API responde 403. El CLI no lo bloquea por su cuenta: muestra el error y sale con 1.
 
 ## Errores
 
@@ -100,8 +100,9 @@ Error: Sorry, it's not me, it's you.
 | 400 | `El endpoint de webhook está deshabilitado: habilítalo antes de probarlo.` | `fiscalapi webhooks update <id> --enabled`. |
 | 400 | `La persona especificada no es válida o no pertenece a tu organización.` | Revisa `--person-id`. |
 | 403 | `fiscalapi trigger no está disponible en producción; usa el ambiente de pruebas.` | Quita `--live`. |
+| 403 | `No tienes permiso para administrar webhooks.` | Usa una API key con el permiso `Webhooks.Manage` ([detalles](solucion-de-problemas.md#403-sin-webhooksmanage)). |
 | 404 | `No such resource for the given Id: …` | Revisa `--webhook`: no existe, está dado de baja o no es tuyo. |
-| 429 | — | Demasiadas peticiones con la misma API key: espera y repite. |
+| 429 | `Se excedió el límite de solicitudes de la familia BusinessWrite (…). Reintenta en N segundos. …` | Demasiadas peticiones con la misma API key: espera los segundos que indica y repite. |
 
 Más casos en [Solución de problemas](solucion-de-problemas.md#fiscalapi-trigger).
 

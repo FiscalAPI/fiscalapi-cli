@@ -52,14 +52,14 @@ fiscalapi login
 # 2. Recibe los eventos de tu cuenta y reenvíalos a tu servidor local
 fiscalapi listen --forward-to http://localhost:3000/webhooks
 #    Listo. Tu secreto de firma es whsec_… (escucha …)
-#    2026-10-12 09:47:46  --> invoice.canceled [evt_0001] [200]
+#    2026-10-12 09:47:46  --> invoice.canceled [3f9c1d2e-7b4a-4e8f-9a1b-2c3d4e5f6a7b] [200]
 
 # 3. En otra terminal, dispara un evento de prueba hacia tu escucha
 fiscalapi trigger invoice.canceled
 ```
 
 Verifica la firma de cada entrega en tu servidor con el secreto `whsec_…` que muestra `listen` y el `Verify` del SDK de
-tu lenguaje ([cómo](docs/listen.md#verificar-la-firma-en-tu-servidor-local)). `fiscalapi trigger` solo funciona en el
+tu lenguaje ([cómo](docs/listen.md#verificar-la-firma)). `fiscalapi trigger` solo funciona en el
 ambiente de pruebas ([detalles](docs/trigger.md)).
 
 ## Documentación

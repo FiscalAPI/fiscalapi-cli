@@ -10,8 +10,7 @@
 | La línea de cada entrega de `listen` | `Listo. Tu secreto de firma es …` de `listen` |
 | `Secreto de firma: whsec_…` de `create` y `rotate-secret` | El aviso de guardar el secreto |
 | El secreto de `listen --print-secret` | Los prompts y mensajes de `login` y `logout` |
-| `Reenvío creado: …` de `events resend` | La confirmación de `webhooks delete` y `Webhook … borrado.` |
-| `Evento disparado: …` de `trigger` | |
+| `Reenvío creado: …` de `events resend` y `Evento disparado: …` de `trigger` | La confirmación de `webhooks delete` y `Webhook … borrado.` |
 | `--version` y `--help` (sin `--json`) | El detalle HTTP de `--verbose` y el aviso de versión nueva |
 
 ```bash
@@ -93,8 +92,8 @@ Error: Sorry, it's not me, it's you.
 Un 400 de validación agrega, debajo del detalle, una línea `- <regla>` por cada regla que falló. Una respuesta que no
 es JSON (por ejemplo, un 502 o 503 en HTML de un proxy) se muestra como `Error: Respuesta inesperada (503).`
 
-Los GET se reintentan solos, hasta 3 intentos en total con espera creciente (de 0.5 s hasta 10 s), ante errores de red,
-408, 429 (respetando `Retry-After`) y 5xx. Un POST, PUT o DELETE nunca se reintenta, para no duplicar una operación, y
-un 4xx tampoco.
+Los GET se reintentan solos, hasta 3 intentos en total con espera creciente (de 0.5 s hasta 10 s), ante una conexión
+fallida o cortada, 408, 429 y 5xx. Se respeta `Retry-After`; si pide más de 10 s, no se reintenta. Nunca se reintentan
+una API que no responde a tiempo, un error de DNS o de TLS, otro 4xx ni un POST, PUT o DELETE.
 
 Siguiente: [Solución de problemas](solucion-de-problemas.md).

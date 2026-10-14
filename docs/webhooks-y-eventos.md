@@ -1,10 +1,7 @@
 # Webhooks y eventos
 
-`fiscalapi webhooks` administra los webhooks de tu cuenta (`/api/v4/webhooks`) y `fiscalapi events` consulta y reenvía
-los eventos de los últimos 30 días (`/api/v4/events`). Requieren una API key cuya persona tenga el permiso
-`Webhooks.Manage`.
-
-Los ejemplos de salida de esta página salen del CLI real con los datos de sus pruebas automatizadas.
+`fiscalapi webhooks` administra los webhooks de tu cuenta y `fiscalapi events` consulta y reenvía los eventos de los
+últimos 30 días. Requieren una API key con el permiso `Webhooks.Manage` ([Autenticación](autenticacion.md)).
 
 ## `fiscalapi webhooks`
 
@@ -23,21 +20,21 @@ Los ejemplos de salida de esta página salen del CLI real con los datos de sus p
 $ fiscalapi webhooks list
 ID                                    TIPO         ESTADO   URL                           EVENTOS                                          DESCRIPCIÓN
 6f1c2a4e-0b7d-4c55-9a3e-1d2f3a4b5c6d  url          enabled  https://example.com/webhooks  invoice.canceled,invoice.cancellation_requested  Producción
-escucha-1                             cliListener  enabled  -                             *                                                -
+9b2e7c4a-1d3f-4e6b-8a5c-0f1e2d3c4b5a  cliListener  enabled  -                             *                                                -
 Página 1 de 3 (5 en total). Siguiente: --page 2
 ```
 
-`TIPO` es `url` para un webhook con URL y `cliListener` para tu [escucha de `fiscalapi listen`](listen.md), que no tiene
-URL. El pie dice qué opción pedir para la página siguiente.
+`TIPO` es `url` para un webhook con URL y `cliListener` para tu [escucha de `fiscalapi listen`](listen.md), que no
+tiene URL. El pie indica la opción para pedir la página siguiente.
 
 ### Paginación
 
 `webhooks list` y `events list` aceptan:
 
-| Opción | Uso |
+| Opción | Descripción |
 |---|---|
-| `--page <número>` | Número de página, desde 1 (por omisión 1). |
-| `--page-size <tamaño>` | Elementos por página, de 1 a 50 (por omisión 10). |
+| `--page <número>` | Número de página, desde 1. Por omisión, 1. |
+| `--page-size <tamaño>` | Elementos por página, de 1 a 50. Por omisión, 10. |
 
 ### Ver un webhook
 
@@ -49,22 +46,22 @@ Estado       enabled
 URL          https://example.com/webhooks
 Descripción  Producción
 Eventos      invoice.canceled, invoice.cancellation_requested
-Personas     persona-1, persona-2
+Personas     2e7d4c1b-9a8f-4e6d-b5c4-3a2b1c0d9e8f, 7c3b2a1d-0e9f-4d8c-a7b6-5f4e3d2c1b0a
 Creado       2026-10-13T09:30:00.000
 ```
 
-Solo se muestran los campos con valor. Según el caso aparecen también `Motivo` y `Deshabilitado` (un webhook
-deshabilitado), `Fallando desde`, `Persona de la escucha` y `Sesión vence` (una escucha de CLI) y `Actualizado`.
+Solo aparecen los campos con valor. Según el caso también verás `Motivo` y `Deshabilitado` (webhook deshabilitado),
+`Fallando desde`, `Persona de la escucha` y `Sesión vence` (escucha de CLI) y `Actualizado`.
 
-### Crear
+### Crear un webhook
 
-| Opción | Uso |
+| Opción | Descripción |
 |---|---|
 | `--url <url>` | **Obligatoria.** URL `https` que recibe las entregas. |
 | `--events <tipos>` | **Obligatoria.** Tipos separados por coma, o `*` para todos. |
 | `--description <texto>` | Descripción libre, hasta 256 caracteres. |
-| `--person <id>` | Solo los eventos de esta persona. Se repite (`--person a --person b`) o va separado por coma. |
-| `--all-persons` | Los eventos de todas las personas. Es lo que pasa si no indicas `--person`. |
+| `--person <id>` | Solo los eventos de esta persona, hasta 100. Se repite (`--person a --person b`) o va separado por coma. |
+| `--all-persons` | Los eventos de todas las personas. Es el comportamiento sin `--person`. |
 
 ```text
 $ fiscalapi webhooks create --url https://example.com/webhooks --events '*'
@@ -80,22 +77,22 @@ Secreto de firma: whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw
 Guarda este secreto de firma. Lo usarás para verificar que los eventos vienen de FiscalAPI.
 ```
 
-**El secreto se muestra una sola vez.** `list` y `retrieve` nunca lo muestran: cópialo a la configuración segura de tu
-receptor en ese momento. Si lo pierdes, genera otro con `rotate-secret`. La línea `Secreto de firma: …` va a stdout y el
-aviso, a stderr.
+**El secreto se muestra una sola vez.** `list` y `retrieve` nunca lo muestran: guárdalo en ese momento en la
+configuración segura de tu receptor. Si lo pierdes, genera otro con `rotate-secret`. La línea `Secreto de firma: …` va
+a stdout y el aviso, a stderr.
 
-En bash y zsh escribe `*` entre comillas (`'*'`) para que el shell no lo expanda como comodín de archivos.
+En bash y zsh, escribe `'*'` entre comillas para que el shell no lo expanda.
 
 Los tipos de evento son `invoice.cancellation_requested`, `invoice.canceled`, `invoice.cancellation_rejected`,
 `download_request.completed`, `download_request.abandoned` y `download_rule.suspended`. La API valida la URL y los
-tipos; si algo no es válido, responde 400 con el detalle de cada regla.
+tipos; si algo no es válido, responde 400 con una línea por cada regla que falló.
 
-### `--person` y `--all-persons`
+### Filtrar por persona
 
-Un webhook recibe los eventos de todas las personas de tu cuenta o solo los de las personas que indiques:
+Un webhook recibe los eventos de todas las personas de tu cuenta o solo los de las que indiques:
 
 ```bash
-fiscalapi webhooks create --url https://example.com/webhooks --events invoice.canceled --person persona-1,persona-2
+fiscalapi webhooks create --url https://example.com/webhooks --events invoice.canceled --person 2e7d4c1b-9a8f-4e6d-b5c4-3a2b1c0d9e8f,7c3b2a1d-0e9f-4d8c-a7b6-5f4e3d2c1b0a
 fiscalapi webhooks update 6f1c2a4e-0b7d-4c55-9a3e-1d2f3a4b5c6d --all-persons   # quita el filtro
 ```
 
@@ -106,16 +103,16 @@ personas sin querer:
 Error: --person necesita al menos un id de persona; para recibir los eventos de todas usa --all-persons.
 ```
 
-`--all-persons` y `--person` no se combinan.
+`--person` y `--all-persons` no se combinan.
 
-### Actualizar
+### Actualizar un webhook
 
-`update` lee el webhook, cambia solo lo que indiques y lo guarda. Acepta las opciones de `create` (todas opcionales)
-y además:
+`update` lee el webhook, cambia solo lo que indicas y lo guarda. Acepta las opciones de `create`, todas opcionales, y
+además:
 
-| Opción | Uso |
+| Opción | Descripción |
 |---|---|
-| `--enabled` | Habilita el webhook; limpia el motivo y la fecha de la deshabilitación. |
+| `--enabled` | Habilita el webhook y limpia el motivo y la fecha de la deshabilitación. |
 | `--disabled` | Deshabilita el webhook y cierra sus entregas pendientes. |
 
 ```bash
@@ -123,18 +120,17 @@ fiscalapi webhooks update 6f1c2a4e-0b7d-4c55-9a3e-1d2f3a4b5c6d --events invoice.
 fiscalapi webhooks update 6f1c2a4e-0b7d-4c55-9a3e-1d2f3a4b5c6d --disabled
 ```
 
-Imprime el webhook ya actualizado. Sin ninguna opción es un error de uso:
+Imprime el webhook actualizado. Estos casos fallan:
 
-```text
-Error: Indica qué cambiar: --url, --description, --events, --person, --all-persons, --enabled o --disabled.
-```
+| Caso | Salida | Error |
+|---|---|---|
+| Sin ninguna opción | 2 | `Error: Indica qué cambiar: --url, --description, --events, --person, --all-persons, --enabled o --disabled.` |
+| `--enabled` con `--disabled` | 2 | `Error: --enabled y --disabled no se combinan.` |
+| El id es tu escucha de CLI | 1 | `Error: Una escucha de CLI no se edita ni se prueba; usa fiscalapi listen y fiscalapi trigger.` |
 
-Tu escucha de CLI no se edita: `update` sobre ella sale con 1 y
-`Error: Una escucha de CLI no se edita ni se prueba; usa fiscalapi listen y fiscalapi trigger.`
+### Borrar un webhook
 
-### Borrar
-
-En una terminal, `delete` pregunta antes de borrar. Solo `s`, `si`, `sí`, `y` o `yes` confirman:
+En una terminal, `delete` pide confirmación. Solo `s`, `si`, `sí`, `y` o `yes` confirman:
 
 ```text
 $ fiscalapi webhooks delete 6f1c2a4e-0b7d-4c55-9a3e-1d2f3a4b5c6d
@@ -142,8 +138,8 @@ $ fiscalapi webhooks delete 6f1c2a4e-0b7d-4c55-9a3e-1d2f3a4b5c6d
 Webhook 6f1c2a4e-0b7d-4c55-9a3e-1d2f3a4b5c6d borrado.
 ```
 
-Si respondes otra cosa: `No se borró el webhook <id>.` (sale con 0). En un script o con `--json` no hay a quién
-preguntar: usa `--yes`.
+Cualquier otra respuesta imprime `No se borró el webhook <id>.` y sale con 0. En un script (stdin redirigido) o con
+`--json` no hay a quién preguntar: agrega `--yes`, o sale con 2.
 
 ```text
 $ fiscalapi webhooks delete 6f1c2a4e-0b7d-4c55-9a3e-1d2f3a4b5c6d --json
@@ -162,7 +158,10 @@ El secreto anterior seguirá firmando durante 24 horas para que actualices tu re
 ```
 
 Durante esas 24 horas cada entrega lleva las dos firmas: configura tu receptor con los dos secretos (los SDK aceptan
-una lista) y quita el anterior al terminar. `rotate-secret` también funciona sobre el id de tu escucha de CLI.
+una lista) y quita el anterior al terminar. Firman como mucho dos secretos: si vuelves a rotar dentro de esas 24 horas,
+el anterior sigue siendo el original y el intermedio deja de firmar.
+
+`rotate-secret` también funciona con el id de tu escucha de CLI.
 
 ## `fiscalapi events`
 
@@ -174,20 +173,25 @@ una lista) y quita el anterior al terminar. `rotate-secret` también funciona so
 
 ### Listar eventos
 
-| Opción | Uso |
+| Opción | Descripción |
 |---|---|
-| `--type <tipo>` | Solo los eventos de este tipo (p. ej. `invoice.canceled` o `webhook.test`). |
+| `--type <tipo>` | Solo los eventos de este tipo, p. ej. `invoice.canceled` o `webhook.test`. |
 | `--related-object-id <id>` | Solo los eventos de este recurso (`data.relatedObject.id`), p. ej. el id de una factura. |
 | `--from <fecha>` | Desde este instante, incluido. |
 | `--to <fecha>` | Hasta este instante, incluido. Por omisión, ahora. |
-| `--page`, `--page-size` | [Paginación](#paginación). |
+| `--page`, `--page-size` | Ver [Paginación](#paginación). |
 
 ```text
 $ fiscalapi events list
-ID                                    TIPO              CREADO (UTC)          RECURSO    PERSONA
-0d6f5c1e-8a2b-4c3d-9e8f-7a6b5c4d3e2f  invoice.canceled  2026-10-12T15:47:46Z  factura-1  persona-1
-evt-2                                 webhook.test      2026-10-12T15:40:00Z  we-1       -
+ID                                    TIPO              CREADO (UTC)          RECURSO                               PERSONA
+0d6f5c1e-8a2b-4c3d-9e8f-7a6b5c4d3e2f  invoice.canceled  2026-10-12T15:47:46Z  c4d3e2f1-a0b9-4c8d-9e7f-6a5b4c3d2e1f  2e7d4c1b-9a8f-4e6d-b5c4-3a2b1c0d9e8f
+5e8a7b6c-3d2f-4a1e-9b0c-8d7e6f5a4b3c  webhook.test      2026-10-12T15:40:00Z  6f1c2a4e-0b7d-4c55-9a3e-1d2f3a4b5c6d  -
 Página 1 de 1 (2 en total).
+```
+
+```bash
+# Las cancelaciones de una factura en octubre
+fiscalapi events list --type invoice.canceled --related-object-id c4d3e2f1-a0b9-4c8d-9e7f-6a5b4c3d2e1f --from 2026-10-01 --to 2026-10-31
 ```
 
 ### Fechas
@@ -198,49 +202,45 @@ Página 1 de 1 (2 en total).
 |---|---|
 | `2026-10-01` | Con `--from`, el inicio del día en UTC. Con `--to`, **el día completo**, hasta las 23:59:59.9999999 UTC. |
 | `2026-10-01T08:00` o `2026-10-01T08:00:00` | Ese instante en UTC. |
-| `2026-10-01T08:00:00-06:00` | Ese instante con su zona horaria. |
+| `2026-10-01T08:00:00-06:00` | Ese instante en esa zona horaria. |
 
-Sin zona, la hora se toma como UTC. Otro formato es un error de uso:
+Sin zona, la hora se toma como UTC. Otro formato es un error de uso (salida 2):
 
 ```text
 $ fiscalapi events list --from ayer
 Error: --from debe ser una fecha ISO 8601 (p. ej. 2026-10-01 o 2026-10-01T08:00:00-06:00); se recibió 'ayer'.
 ```
 
-```bash
-# Las cancelaciones de una factura en octubre
-fiscalapi events list --type invoice.canceled --related-object-id factura-1 --from 2026-10-01 --to 2026-10-31
-```
-
 ### Ver un evento
 
-`events retrieve` imprime el evento exactamente como lo entrega la API, con o sin `--json`:
+`events retrieve` imprime el evento exactamente como lo entrega la API, con o sin `--json`. Su `id` es el del header
+`webhook-id` de sus entregas.
 
 ```text
 $ fiscalapi events retrieve 0d6f5c1e-8a2b-4c3d-9e8f-7a6b5c4d3e2f
-{"id":"0d6f5c1e-8a2b-4c3d-9e8f-7a6b5c4d3e2f","type":"invoice.canceled","createdAt":"2026-10-12T15:47:46Z","personId":"persona-1","data":{"relatedObject":{"id":"factura-1","type":"invoice","url":"/api/v4/invoices/factura-1"},"status":"X","previousStatus":"C"}}
+{"id":"0d6f5c1e-8a2b-4c3d-9e8f-7a6b5c4d3e2f","type":"invoice.canceled","createdAt":"2026-10-12T15:47:46Z","personId":"2e7d4c1b-9a8f-4e6d-b5c4-3a2b1c0d9e8f","data":{"relatedObject":{"id":"c4d3e2f1-a0b9-4c8d-9e7f-6a5b4c3d2e1f","type":"invoice","url":"/api/v4/invoices/c4d3e2f1-a0b9-4c8d-9e7f-6a5b4c3d2e1f"},"status":"X","previousStatus":"C"}}
 ```
-
-El `id` del evento es el mismo del header `webhook-id` de sus entregas.
 
 ### Reenviar un evento
 
 ```text
-$ fiscalapi events resend 0d6f5c1e-8a2b-4c3d-9e8f-7a6b5c4d3e2f --webhook we-1
-Reenvío creado: entrega entrega-1 al webhook we-1.
+$ fiscalapi events resend 0d6f5c1e-8a2b-4c3d-9e8f-7a6b5c4d3e2f --webhook 6f1c2a4e-0b7d-4c55-9a3e-1d2f3a4b5c6d
+Reenvío creado: entrega d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a al webhook 6f1c2a4e-0b7d-4c55-9a3e-1d2f3a4b5c6d.
 ```
 
-- Con `--webhook <id>`, el evento se reenvía a ese webhook (cuerpo `{"webhookId":"<id>"}`).
-- Sin `--webhook`, va a **tu escucha de CLI**, que tiene que tener un `fiscalapi listen` abierto. Es la forma de recibir
-  en local un evento que ocurrió mientras `listen` no corría.
+| Opción | Descripción |
+|---|---|
+| `--webhook <id>` | Webhook que recibe el reenvío. Por omisión, tu escucha de CLI, que debe tener un `fiscalapi listen` abierto. |
 
-El reenvío crea una entrega nueva con el mismo evento: mismo `webhook-id` y mismo cuerpo. Tu receptor debe descartar
-los ids que ya procesó.
+Sin `--webhook` recibes en local un evento que ocurrió mientras `listen` no corría. Si no hay un `listen` abierto, la
+API responde 409 (`La escucha de CLI no está conectada; ejecuta fiscalapi listen.`).
+
+El reenvío crea una entrega nueva del mismo evento, con el mismo `webhook-id` y el mismo cuerpo. Tu receptor debe
+descartar los ids que ya procesó.
 
 ## `--json`
 
-Con `--json`, cada comando imprime en stdout el `data` de la respuesta de la API, sin cambios, para procesarlo con otra
-herramienta:
+Con `--json`, cada comando imprime en stdout el `data` de la respuesta de la API, sin cambios:
 
 ```bash
 # Los ids de los webhooks habilitados
@@ -250,8 +250,7 @@ fiscalapi webhooks list --page-size 50 --json | jq -r '.items[] | select(.status
 secret=$(fiscalapi webhooks create --url https://example.com/webhooks --events '*' --json | jq -r .secret)
 ```
 
-Una página trae `items`, `pageNumber`, `totalPages`, `totalCount`, `hasPreviousPage` y `hasNextPage`. Los mensajes
-para la persona (el aviso del secreto, `Webhook … borrado.`) y los errores siguen en stderr como texto. Ver
-[Salida y códigos](salida-y-codigos.md).
+Una página trae `items`, `pageNumber`, `totalPages`, `totalCount`, `hasPreviousPage` y `hasNextPage`. El aviso de
+guardar el secreto y los errores siguen en stderr como texto. Más en [Salida y códigos](salida-y-codigos.md).
 
 Siguiente: [`fiscalapi trigger`](trigger.md).

@@ -30,7 +30,7 @@ pruebas no sirven con `--live` y al revés).
 
 ```text
 Error: Sorry, it's not me, it's you.
-  Detalle: The authenticated credentials do not have permission to perform this operation.
+  Detalle: No tienes permiso para administrar webhooks.
   Código HTTP: 403
 ```
 
@@ -114,7 +114,7 @@ terminal, otra máquina o un script). Solo puede haber una sesión por persona; 
 ### El receptor no responde: `[error: Timeout]`, `[error: ConnectionFailed]`
 
 ```text
-2026-10-12 09:47:46  --> invoice.canceled [evt_0001] [error: ConnectionFailed]
+2026-10-12 09:47:46  --> invoice.canceled [3f9c1d2e-7b4a-4e8f-9a1b-2c3d4e5f6a7b] [error: ConnectionFailed]
 ```
 
 **Causa:** nada escucha en la URL de `--forward-to` (puerto equivocado, servidor apagado, ruta en otro host), o tu
@@ -129,7 +129,7 @@ autofirmado verás `[error: TlsFailed]`: agrega `--skip-verify`. La entrega no s
 `[FromBody]` en ASP.NET Core o `express.json()` en Express) y lo vuelves a serializar, cambian los espacios, el orden o
 los escapes, y la firma ya no coincide. `listen` reenvía los bytes exactos que firmó FiscalAPI.
 **Remedio:** lee el cuerpo crudo antes de deserializarlo y pásalo al `Verify` del SDK
-([listen](listen.md#verificar-la-firma-en-tu-servidor-local)).
+([listen](listen.md#verificar-la-firma)).
 
 Otras causas:
 
@@ -185,7 +185,8 @@ dispara. **Remedio:** usa uno de los tipos de `fiscalapi trigger --help`.
 
 **Causa:** `trigger` respondió `Evento disparado`, pero la entrega es de un solo intento: si tu servidor no respondió
 2xx, queda fallida y no se reintenta. **Remedio:** revisa la línea de `listen` (`[500]`, `[error: …]`) o el log de
-entregas del webhook en el dashboard, corrige y repite con `fiscalapi events resend <eventId>`.
+entregas del webhook en el dashboard, corrige y repite con `fiscalapi events resend <eventId> [--webhook <id>]`, con
+el mismo `--webhook` del `trigger` (sin él, el reenvío va a tu escucha de `listen`).
 
 ## Instalación
 
