@@ -163,7 +163,7 @@ Borrarlo solo adelanta la siguiente consulta. Si la carpeta no se puede escribir
    ```bash
    fiscalapi logout
    fiscalapi logout --live
-   fiscalapi logout --api-base https://localhost:5001   # si usaste otra URL base
+   fiscalapi logout --api-base http://localhost:5001   # si usaste otra URL base
    ```
 
 2. Borra el binario y la carpeta de estado:
