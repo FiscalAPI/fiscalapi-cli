@@ -1,0 +1,62 @@
+using System.Text.Json.Serialization;
+
+namespace FiscalApi.Cli.Webhooks;
+
+// Los contratos de los eventos de webhook de la API, con sus mismos nombres.
+
+/// <summary>
+/// Lo que la tabla de <c>events list</c> muestra del sobre del evento (<c>{id, type, createdAt, personId,
+/// data:{relatedObject, status, previousStatus}}</c>). <c>createdAt</c> es texto: la API lo entrega en UTC y se muestra tal
+/// cual.
+/// </summary>
+public sealed class WebhookEventEnvelope
+{
+    public string? Id { get; init; }
+
+    public string? Type { get; init; }
+
+    public string? CreatedAt { get; init; }
+
+    public string? PersonId { get; init; }
+
+    public WebhookEventData? Data { get; init; }
+}
+
+public sealed class WebhookEventData
+{
+    public WebhookRelatedObject? RelatedObject { get; init; }
+}
+
+/// <summary>El recurso del evento: la factura, la solicitud de descarga, la regla o el webhook.</summary>
+public sealed class WebhookRelatedObject
+{
+    public string? Id { get; init; }
+}
+
+/// <summary>Los filtros de <c>GET /api/v4/events</c>; los instantes van en UTC.</summary>
+public sealed record WebhookEventsQuery(
+    string? Type,
+    string? RelatedObjectId,
+    DateTimeOffset? From,
+    DateTimeOffset? To,
+    Http.PageRequest Page);
+
+/// <summary>El cuerpo de <c>POST /api/v4/events/{id}/resend</c> cuando se indica el webhook (<c>ResendWebhookEventCommand</c>).</summary>
+public sealed record ResendWebhookEventRequest(string WebhookId);
+
+/// <summary>El reenvío aceptado (<c>WebhookEventResendDto</c>): con estos ids se sigue en el log de entregas.</summary>
+public sealed record WebhookEventResend(string DeliveryId, string WebhookId);
+
+/// <summary>
+/// El cuerpo de <c>POST /api/v4/events/trigger</c> (<c>TriggerWebhookEventCommand</c>).
+/// Lo que la persona no dio no se escribe: para la API, un id vacío es un error y uno omitido elige el valor por
+/// omisión (sin <see cref="WebhookId"/>, la escucha de CLI de quien llama).
+/// </summary>
+public sealed record TriggerWebhookEventRequest(
+    string Type,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RelatedObjectId,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? PersonId,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? WebhookId);
+
+/// <summary>El evento disparado (<c>WebhookEventTriggerDto</c>) y el webhook que lo recibe.</summary>
+public sealed record WebhookEventTrigger(string EventId, string WebhookId);

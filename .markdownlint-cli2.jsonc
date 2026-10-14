@@ -1,0 +1,12 @@
+// markdownlint-cli2 para README.md y docs/: el repo envuelve la prosa a 120 columnas, como el código (.editorconfig de
+// fapi-back). Las tablas y los bloques de código no se cortan: una salida real del CLI o un comando se copian tal cual.
+{
+  "config": {
+    "MD013": {
+      "line_length": 120,
+      "tables": false,
+      "code_blocks": false
+    }
+  },
+  "globs": ["README.md", "docs/*.md"]
+}
