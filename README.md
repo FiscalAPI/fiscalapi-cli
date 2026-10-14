@@ -3,11 +3,6 @@
 `fiscalapi` lleva los webhooks de FiscalAPI a tu terminal: recibe los eventos en tu equipo y los reenvía a tu servidor
 local, dispara eventos de prueba y administra tus webhooks y eventos sin salir de la consola.
 
-Está inspirado en la Stripe CLI: [`stripe listen`](https://docs.stripe.com/cli/listen),
-[`stripe trigger`](https://docs.stripe.com/cli/trigger) y [`stripe events resend`](https://docs.stripe.com/cli/events/resend)
-tienen aquí su equivalente. [`stripe logs tail`](https://docs.stripe.com/cli/logs/tail) no lo tiene, porque FiscalAPI no
-guarda un log de peticiones por cuenta.
-
 Es un solo binario nativo para Windows, Linux y macOS: no necesitas instalar .NET.
 
 ## Instalación

@@ -168,7 +168,7 @@ public sealed class ListenCommandTests : IAsyncLifetime
         Assert.Equal(["dlv_0001", "dlv_0002"], _api.Acks.Select(ack => ack.DeliveryId).Order());
         Assert.All(_api.Acks, ack =>
         {
-            // Asumido: sin destino local, la entrega llegó a su destino, la terminal (como en stripe listen).
+            // Asumido: sin destino local, la entrega llegó a su destino, la terminal.
             Assert.Equal(200, ack.StatusCode);
             Assert.Equal(0, ack.LatencyMs);
             Assert.Null(ack.Error);

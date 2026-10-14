@@ -1,7 +1,7 @@
 # `fiscalapi listen`
 
 `listen` recibe en tu equipo los eventos de webhook de tu cuenta y los reenvía a tu servidor local, sin exponerlo a
-internet. Es el equivalente de [`stripe listen`](https://docs.stripe.com/cli/listen).
+internet.
 
 ```bash
 fiscalapi listen --forward-to http://localhost:3000/webhooks
