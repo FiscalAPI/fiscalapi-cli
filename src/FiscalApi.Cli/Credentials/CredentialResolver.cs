@@ -3,7 +3,7 @@ using FiscalApi.Cli.Errors;
 namespace FiscalApi.Cli.Credentials;
 
 /// <summary>
-/// De dónde salen las credenciales de una invocación (D-25): las variables de entorno ganan sobre lo guardado en
+/// De dónde salen las credenciales de una invocación: las variables de entorno ganan sobre lo guardado en
 /// el almacén del SO, para que el CI no dependa de un llavero.
 /// </summary>
 public sealed class CredentialResolver(ICredentialStore store, Func<string, string?> readEnvironmentVariable)

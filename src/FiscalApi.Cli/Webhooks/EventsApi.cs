@@ -5,7 +5,7 @@ using FiscalApi.Cli.Http;
 namespace FiscalApi.Cli.Webhooks;
 
 /// <summary>
-/// Las rutas de los eventos de webhook (<c>/api/v4/events</c>, D-28) sobre <see cref="FiscalApiClient"/>. Cada una responde
+/// Las rutas de los eventos de webhook (<c>/api/v4/events</c>) sobre <see cref="FiscalApiClient"/>. Cada una responde
 /// el <c>data</c> tal como lo escribió la API.
 /// </summary>
 public sealed class EventsApi(FiscalApiClient client)
@@ -38,7 +38,7 @@ public sealed class EventsApi(FiscalApiClient client)
 
     /// <summary>
     /// <c>POST /events/{id}/resend</c>: 202 con la entrega nueva. Sin <paramref name="webhookId"/> va sin cuerpo y la
-    /// API lo entrega a la escucha de CLI de la persona (D-28), que tiene que tener un <c>listen</c> abierto.
+    /// API lo entrega a la escucha de CLI de la persona, que tiene que tener un <c>listen</c> abierto.
     /// </summary>
     public async Task<JsonElement> ResendAsync(string id, string? webhookId, CancellationToken cancellationToken)
     {
@@ -56,7 +56,7 @@ public sealed class EventsApi(FiscalApiClient client)
     }
 
     /// <summary>
-    /// <c>POST /events/trigger</c>: 202 con el evento sintético y su único destino (D-27). La API decide si el ambiente lo
+    /// <c>POST /events/trigger</c>: 202 con el evento sintético y su único destino. La API decide si el ambiente lo
     /// permite (solo Development y Test) y si el tipo existe.
     /// </summary>
     public async Task<JsonElement> TriggerAsync(TriggerWebhookEventRequest request, CancellationToken cancellationToken) =>

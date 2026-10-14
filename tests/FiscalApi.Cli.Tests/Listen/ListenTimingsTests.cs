@@ -2,7 +2,7 @@ using FiscalApi.Cli.Listen;
 
 namespace FiscalApi.Cli.Tests.Listen;
 
-/// <summary>Los plazos de <c>listen</c> son los del contrato (CLI-004, WH-015).</summary>
+/// <summary>Los plazos de <c>listen</c> son los del contrato con la API.</summary>
 public sealed class ListenTimingsTests
 {
     [Fact]

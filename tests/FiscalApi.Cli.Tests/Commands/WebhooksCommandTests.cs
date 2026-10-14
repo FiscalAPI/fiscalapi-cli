@@ -5,8 +5,8 @@ using FiscalApi.Cli.Tests.Http;
 namespace FiscalApi.Cli.Tests.Commands;
 
 /// <summary>
-/// CLI-003: <c>fiscalapi webhooks list|retrieve|create|update|delete|rotate-secret</c> contra las rutas de
-/// <c>WebhooksController</c> de fapi-back (WH-011), simuladas con <see cref="StubHttpMessageHandler"/>. Cada
+/// <c>fiscalapi webhooks list|retrieve|create|update|delete|rotate-secret</c> contra las rutas de
+/// <c>WebhooksController</c> de la API, simuladas con <see cref="StubHttpMessageHandler"/>. Cada
 /// subcomando arma la ruta, el método, la query y el cuerpo; <c>--json</c> deja en stdout el <c>data</c> sin cambios; el
 /// secreto sale una sola vez.
 /// </summary>

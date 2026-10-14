@@ -27,7 +27,7 @@ public abstract class ListenOutput(CliConsole console, bool verbose, TimeProvide
     public abstract void WriteDelivery(CliDelivery delivery, DeliveryOutcome outcome);
 
     /// <summary>
-    /// El texto aprobado (D-21) con el secreto. Es el único lugar, junto con <c>--print-secret</c>, donde se escribe el
+    /// El texto aprobado con el secreto. Es el único lugar, junto con <c>--print-secret</c>, donde se escribe el
     /// secreto; va a stderr porque es para la persona, no un dato del flujo de eventos.
     /// </summary>
     public void WriteReady(CliListenerSession session) =>

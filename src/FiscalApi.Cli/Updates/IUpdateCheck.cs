@@ -1,6 +1,6 @@
 namespace FiscalApi.Cli.Updates;
 
-/// <summary>Aviso de versión nueva que corre en paralelo al comando (CLI-006).</summary>
+/// <summary>Aviso de versión nueva que corre en paralelo al comando.</summary>
 public interface IUpdateCheck
 {
     /// <summary>

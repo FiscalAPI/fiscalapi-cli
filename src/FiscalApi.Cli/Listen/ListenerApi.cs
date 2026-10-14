@@ -2,12 +2,12 @@ using FiscalApi.Cli.Http;
 
 namespace FiscalApi.Cli.Listen;
 
-/// <summary>Las rutas de la escucha de CLI (D-28) sobre <see cref="FiscalApiClient"/>.</summary>
+/// <summary>Las rutas de la escucha de CLI sobre <see cref="FiscalApiClient"/>.</summary>
 public sealed class ListenerApi(FiscalApiClient client, int pollWaitSeconds)
 {
     private const string WebhooksPath = "api/v4/webhooks";
 
-    /// <summary>Abre una sesión nueva, que reemplaza la anterior de la persona, y responde el secreto (D-29).</summary>
+    /// <summary>Abre una sesión nueva, que reemplaza la anterior de la persona, y responde el secreto.</summary>
     public async Task<CliListenerSession> OpenAsync(IReadOnlyList<string> enabledEvents, CancellationToken cancellationToken) =>
         await client.PostAsync(
             $"{WebhooksPath}/cli-listener",

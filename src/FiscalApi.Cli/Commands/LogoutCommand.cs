@@ -4,7 +4,7 @@ using FiscalApi.Cli.Credentials;
 namespace FiscalApi.Cli.Commands;
 
 /// <summary>
-/// <c>fiscalapi logout</c> (CLI-002): borra la entrada del host del ambiente en el almacén del SO. Es local (no
+/// <c>fiscalapi logout</c>: borra la entrada del host del ambiente en el almacén del SO. Es local (no
 /// llama a la API). Termina con éxito si borró o si no había nada guardado; si el almacén existe pero falla
 /// (bloqueado, sin respuesta), lo dice y sale con 1.
 /// </summary>

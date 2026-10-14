@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace FiscalApi.Cli.Webhooks;
 
-// Los contratos de los webhooks de fapi-back (WH-011), con sus mismos nombres. Los enums de la API (kind,
+// Los contratos de los webhooks de la API, con sus mismos nombres. Los enums de la API (kind,
 // status, disabledReason) se leen como texto: el CLI solo los muestra, y un valor nuevo no debe romper la lectura.
 
 /// <summary>Los valores de <c>kind</c> (<c>WebhookKind</c> en camelCase) que el CLI distingue.</summary>

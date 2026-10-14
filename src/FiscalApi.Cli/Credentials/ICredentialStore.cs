@@ -2,7 +2,7 @@ namespace FiscalApi.Cli.Credentials;
 
 /// <summary>
 /// Almacén de credenciales del SO, con una entrada por host de API (<see cref="ApiEnvironment.Host"/>), así las
-/// credenciales de test, live y el back local no se pisan (D-25). Nunca hay un archivo plano ni otro respaldo:
+/// credenciales de test, live y el back local no se pisan. Nunca hay un archivo plano ni otro respaldo:
 /// si el SO no tiene almacén, cada operación lanza <see cref="CredentialStoreUnavailableException"/>; si lo tiene
 /// pero está bloqueado o falla, <see cref="CredentialStoreException"/>.
 /// </summary>

@@ -11,7 +11,7 @@ using FiscalApi.Cli.Tests.Updates;
 namespace FiscalApi.Cli.Tests.Commands;
 
 /// <summary>
-/// CLI-002: <c>fiscalapi login</c> lee la API key y la tenant key (por stdin redirigido o tecla por tecla), las valida con
+/// <c>fiscalapi login</c> lee la API key y la tenant key (por stdin redirigido o tecla por tecla), las valida con
 /// <c>GET /api/v4/me/features</c> y las guarda por host. La API se simula con <see cref="StubHttpMessageHandler"/>.
 /// </summary>
 public sealed class LoginCommandTests

@@ -6,7 +6,7 @@ namespace FiscalApi.Cli.Listen;
 /// <summary>
 /// El trabajo de una entrega: reenviarla (o solo mostrarla), escribir su línea y acusarla. Todo lo que tiene resultado se
 /// acusa, también lo que el receptor no pudo recibir: una entrega sin acuse queda abierta hasta que la API la cierra al
-/// vencer su lease, sin reintentos (D-26).
+/// vencer su lease, sin reintentos.
 /// </summary>
 public sealed class DeliveryProcessor(
     IDeliveryTarget target,

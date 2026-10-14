@@ -8,7 +8,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace FiscalApi.Cli.Tests.Updates;
 
 /// <summary>
-/// Aviso de versión nueva (CLI-006): consulta releases/latest como mucho una vez cada 24 h, con 2 s de tope, y nunca
+/// Aviso de versión nueva: consulta releases/latest como mucho una vez cada 24 h, con 2 s de tope, y nunca
 /// falla ni bloquea el comando. GitHub se simula con <see cref="StubHttpMessageHandler"/>: las pruebas no salen a la red.
 /// </summary>
 public sealed class UpdateCheckTests : IDisposable

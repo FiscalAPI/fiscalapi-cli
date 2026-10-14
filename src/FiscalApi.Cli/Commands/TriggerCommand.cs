@@ -5,9 +5,9 @@ using FiscalApi.Cli.Webhooks;
 namespace FiscalApi.Cli.Commands;
 
 /// <summary>
-/// <c>fiscalapi trigger &lt;type&gt; [--related-object-id &lt;id&gt;] [--person-id &lt;id&gt;] [--webhook &lt;id&gt;]</c>
-/// (CLI-005): <c>POST /api/v4/events/trigger</c>. La API genera un evento sintético del tipo y lo entrega a un solo
-/// destino (D-27): sin <c>--webhook</c>, la escucha de CLI de la persona, así que <c>fiscalapi listen</c> tiene que estar
+/// <c>fiscalapi trigger &lt;type&gt; [--related-object-id &lt;id&gt;] [--person-id &lt;id&gt;] [--webhook &lt;id&gt;]</c>:
+/// <c>POST /api/v4/events/trigger</c>. La API genera un evento sintético del tipo y lo entrega a un solo
+/// destino: sin <c>--webhook</c>, la escucha de CLI de la persona, así que <c>fiscalapi listen</c> tiene que estar
 /// abierto o responde 409. El CLI no valida el tipo ni bloquea <c>--live</c>: esas reglas viven solo en la API, que
 /// responde 400 o 403 con su texto.
 /// </summary>

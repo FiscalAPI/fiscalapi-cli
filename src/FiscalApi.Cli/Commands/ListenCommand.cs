@@ -7,7 +7,7 @@ using FiscalApi.Cli.Listen;
 namespace FiscalApi.Cli.Commands;
 
 /// <summary>
-/// <c>fiscalapi listen</c> (CLI-004, D-26): abre la escucha de CLI, hace long-polling y reenvía cada entrega a
+/// <c>fiscalapi listen</c>: abre la escucha de CLI, hace long-polling y reenvía cada entrega a
 /// <c>--forward-to</c> con el cuerpo y los headers firmados intactos.
 /// </summary>
 public sealed class ListenCommand : Command
@@ -22,7 +22,7 @@ public sealed class ListenCommand : Command
     // Sin --events, todos los tipos: el comodín de fapi-back (WebhookEventTypes.Wildcard).
     private readonly Option<IReadOnlyList<string>> _events = new("--events")
     {
-        Description = "Tipos de evento separados por coma (p. ej. invoice.canceled,invoice.created). Por omisión, todos.",
+        Description = "Tipos de evento separados por coma (p. ej. invoice.canceled,download_request.completed). Por omisión, todos.",
         HelpName = "tipos",
         Arity = ArgumentArity.ExactlyOne,
         CustomParser = CommaSeparatedValues.Parse,
@@ -87,7 +87,7 @@ public sealed class ListenCommand : Command
 
         if (parseResult.GetValue(_printSecret))
         {
-            // El secreto solo llega al abrir una sesión (D-29), y abrirla reemplaza la de otro listen en curso (D-26).
+            // El secreto solo llega al abrir una sesión, y abrirla reemplaza la de otro listen en curso.
             var session = await api.OpenAsync(enabledEvents, cancellationToken);
             output.WriteSecret(session.Secret);
             return ExitCodes.Success;

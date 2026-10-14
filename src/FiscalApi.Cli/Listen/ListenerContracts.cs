@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace FiscalApi.Cli.Listen;
 
-// Los contratos de la escucha de CLI de fapi-back (WebhookCliListenerController, D-28), con sus mismos nombres.
+// Los contratos de la escucha de CLI de la API (WebhookCliListenerController), con sus mismos nombres.
 
 /// <summary>El cuerpo de <c>POST /api/v4/webhooks/cli-listener</c> (<c>OpenCliListenerCommand</c>).</summary>
 public sealed record OpenCliListenerRequest(IReadOnlyList<string> EnabledEvents);
@@ -29,7 +29,7 @@ public sealed class CliListenerSession
 /// <param name="Body">El sobre del evento: los mismos caracteres que se firmaron.</param>
 public sealed record CliDelivery(string DeliveryId, IReadOnlyDictionary<string, string> Headers, string Body)
 {
-    /// <summary>El id del evento que la API manda en <c>webhook-id</c> (D-02); nulo si no vino.</summary>
+    /// <summary>El id del evento que la API manda en <c>webhook-id</c>; nulo si no vino.</summary>
     public string? EventId => Headers.GetValueOrDefault(WebhookHeaderNames.Id);
 
     /// <summary>

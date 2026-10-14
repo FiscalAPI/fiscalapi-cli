@@ -3,7 +3,7 @@ using System.CommandLine;
 namespace FiscalApi.Cli.Tests;
 
 /// <summary>
-/// D-25: <c>--api-base</c> gana sobre <c>--live</c>, y este sobre test.
+/// <c>--api-base</c> gana sobre <c>--live</c>, y este sobre test.
 /// </summary>
 public sealed class GlobalOptionsTests
 {

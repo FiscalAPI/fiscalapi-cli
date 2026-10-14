@@ -8,7 +8,7 @@ using FiscalApi.Cli.Tests.Updates;
 namespace FiscalApi.Cli.Tests.Credentials;
 
 /// <summary>
-/// D-25: <c>FISCALAPI_API_KEY</c>/<c>FISCALAPI_TENANT_KEY</c> ganan sobre lo guardado, y las credenciales nunca
+/// <c>FISCALAPI_API_KEY</c>/<c>FISCALAPI_TENANT_KEY</c> ganan sobre lo guardado, y las credenciales nunca
 /// aparecen en <c>--verbose</c> ni en un error.
 /// </summary>
 public sealed class CredentialResolutionTests

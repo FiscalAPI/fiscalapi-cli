@@ -4,7 +4,7 @@ using FiscalApi.Cli.Http;
 namespace FiscalApi.Cli.Commands.Events;
 
 /// <summary>
-/// <c>fiscalapi events list|retrieve|resend</c> (CLI-003): los eventos de webhook del tenant de los últimos 30 días sobre
+/// <c>fiscalapi events list|retrieve|resend</c>: los eventos de webhook del tenant de los últimos 30 días sobre
 /// <c>/api/v4/events</c>. Sin subcomando muestra la ayuda.
 /// </summary>
 public sealed class EventsCommand : Command

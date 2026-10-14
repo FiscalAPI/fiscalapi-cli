@@ -6,8 +6,8 @@ using FiscalApi.Cli.Tests.Http;
 namespace FiscalApi.Cli.Tests.Commands;
 
 /// <summary>
-/// CLI-005: <c>fiscalapi trigger</c> contra <c>POST /api/v4/events/trigger</c> de fapi-back (WH-016, D-27, D-32, con el
-/// <c>webhookId</c> de D-33), simulada con <see cref="StubHttpMessageHandler"/>. Quien valida el tipo y el ambiente es la
+/// <c>fiscalapi trigger</c> contra <c>POST /api/v4/events/trigger</c> de la API,
+/// simulada con <see cref="StubHttpMessageHandler"/>. Quien valida el tipo y el ambiente es la
 /// API: el CLI solo arma la petición y muestra su respuesta.
 /// </summary>
 public sealed class TriggerCommandTests
@@ -29,7 +29,7 @@ public sealed class TriggerCommandTests
         var request = _cli.SingleRequest();
         Assert.Equal(HttpMethod.Post, request.Method);
         Assert.Equal(new Uri(TriggerUrl), request.RequestUri);
-        // Sin --webhook no viaja webhookId (ni las demás opciones): la API elige la escucha de quien llama (D-32).
+        // Sin --webhook no viaja webhookId (ni las demás opciones): la API elige la escucha de quien llama.
         ApiCommandHarness.AssertJsonEqual("""{"type":"invoice.canceled"}""", _cli.Body());
     }
 
@@ -73,9 +73,10 @@ public sealed class TriggerCommandTests
         _cli.AssertJsonOut(accepted);
     }
 
-    // El CLI no bloquea --live: la regla vive en la API, que responde 403 fuera de Development y Test.
+    // El CLI no bloquea --live: la regla vive en la API, que responde 403 fuera de Development y Test. El harness
+    // siempre agrega --api-base, que gana sobre --live, así que solo prueba que el flag no se rechaza en el cliente.
     [Fact]
-    public async Task Trigger_with_live_reaches_the_api_and_shows_its_403()
+    public async Task Trigger_with_live_flag_is_not_blocked_by_the_cli_and_shows_the_api_403()
     {
         _cli.Api.RespondJson(HttpStatusCode.Forbidden,
             """{"succeeded":false,"message":"Sorry, it's not me, it's you.","details":"fiscalapi trigger no está disponible en producción; usa el ambiente de pruebas.","traceIdentifier":"0HN7:00000403"}""");

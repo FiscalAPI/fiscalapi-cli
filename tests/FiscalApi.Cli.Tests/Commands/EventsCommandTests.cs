@@ -5,8 +5,8 @@ using FiscalApi.Cli.Tests.Http;
 namespace FiscalApi.Cli.Tests.Commands;
 
 /// <summary>
-/// CLI-003: <c>fiscalapi events list|retrieve|resend</c> contra las rutas de <c>EventsController</c> de fapi-back (WH-013,
-/// D-28), simuladas con <see cref="StubHttpMessageHandler"/>. <c>retrieve</c> imprime el sobre exactamente como lo entregó la
+/// <c>fiscalapi events list|retrieve|resend</c> contra las rutas de <c>EventsController</c> de la API,
+/// simuladas con <see cref="StubHttpMessageHandler"/>. <c>retrieve</c> imprime el sobre exactamente como lo entregó la
 /// API.
 /// </summary>
 public sealed class EventsCommandTests
@@ -14,7 +14,7 @@ public sealed class EventsCommandTests
     private const string EventsUrl = "https://api.example.test/api/v4/events";
     private const string EventId = "0d6f5c1e-8a2b-4c3d-9e8f-7a6b5c4d3e2f";
 
-    // El sobre de D-04 como lo guarda y entrega fapi-back (WebhookEnvelopeSerializer): sin espacios y con las nulas.
+    // El sobre del evento como lo guarda y entrega la API (WebhookEnvelopeSerializer): sin espacios y con las nulas.
     private const string Envelope =
         $$$"""{"id":"{{{EventId}}}","type":"invoice.canceled","createdAt":"2026-10-12T15:47:46Z","personId":"persona-1","data":{"relatedObject":{"id":"factura-1","type":"invoice","url":"/api/v4/invoices/factura-1"},"status":"X","previousStatus":"C"}}""";
 

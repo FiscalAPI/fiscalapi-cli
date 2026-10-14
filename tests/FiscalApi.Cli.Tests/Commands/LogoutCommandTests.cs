@@ -6,7 +6,7 @@ using FiscalApi.Cli.Tests.Updates;
 namespace FiscalApi.Cli.Tests.Commands;
 
 /// <summary>
-/// CLI-002: <c>fiscalapi logout</c> es local (no recibe cliente HTTP). Termina con éxito si borró o si no había
+/// <c>fiscalapi logout</c> es local (no recibe cliente HTTP). Termina con éxito si borró o si no había
 /// nada guardado; un almacén que existe pero falla (bloqueado, sin respuesta) es un error con código 1.
 /// </summary>
 public sealed class LogoutCommandTests

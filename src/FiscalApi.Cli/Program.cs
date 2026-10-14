@@ -33,7 +33,7 @@ try
     var console = new CliConsole(Console.Out, Console.Error);
     var globalOptions = new GlobalOptions();
 
-    // El almacén del SO en que corre el binario; FISCALAPI_API_KEY y FISCALAPI_TENANT_KEY ganan sobre él (D-25).
+    // El almacén del SO en que corre el binario; FISCALAPI_API_KEY y FISCALAPI_TENANT_KEY ganan sobre él.
     var credentialStore = CredentialStores.ForCurrentOs(CredentialStores.ProductionService);
     var credentials = new CredentialResolver(credentialStore, Environment.GetEnvironmentVariable);
 

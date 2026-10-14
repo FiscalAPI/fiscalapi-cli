@@ -14,7 +14,7 @@ using Microsoft.Extensions.Logging;
 namespace FiscalApi.Cli.Tests.Listen;
 
 /// <summary>
-/// La escucha de CLI de fapi-back (WH-014/WH-015) en Kestrel, en proceso: abre sesiones, responde el long-polling con lo
+/// La escucha de CLI de la API en Kestrel, en proceso: abre sesiones, responde el long-polling con lo
 /// que la prueba encola y guarda cada acuse. Sin pasos encolados, el long-polling espera hasta que el CLI se va, como el
 /// real cuando no hay entregas. Nunca se llama a Test ni a Live.
 /// </summary>
@@ -278,11 +278,11 @@ internal sealed record FakeDelivery(
 {
     public const string Timestamp = "1791900000";
 
-    /// <summary>La firma real de Standard Webhooks (D-02) con el secreto de la escucha: el receptor la puede verificar.</summary>
+    /// <summary>La firma real de Standard Webhooks con el secreto de la escucha: el receptor la puede verificar.</summary>
     public string Signature =>
         SignatureHeader ?? StandardWebhooksSignature.Sign(EventId, Timestamp, Encoding.UTF8.GetBytes(EnvelopeBody));
 
-    /// <summary>El sobre de D-04 con un formato que un re-serializador cambiaría (sangría y espacios).</summary>
+    /// <summary>El sobre del evento con un formato que un re-serializador cambiaría (sangría y espacios).</summary>
     public string EnvelopeBody => Body ?? $$$"""
         {"id":"{{{EventId}}}","type":"{{{Type}}}","createdAt":"2026-10-12T18:47:53Z","personId":null,
          "data":{"relatedObject":{"id":"inv_1","type":"invoice","url":"/api/v4/invoices/inv_1"},"status":"X","previousStatus":"V"}}

@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace FiscalApi.Cli.Listen;
 
 /// <summary>
-/// Lo que la terminal muestra de una entrega: el id del evento (de <c>webhook-id</c>), su tipo y el sobre (D-04). Se lee
+/// Lo que la terminal muestra de una entrega: el id del evento (de <c>webhook-id</c>), su tipo y el sobre. Se lee
 /// sin tocar el cuerpo, que se reenvía siempre tal cual, y sin fallar: un cuerpo que no es el sobre o una entrega sin
 /// <c>webhook-id</c> se muestran con <see cref="Unknown"/> y se acusan como cualquier otra.
 /// </summary>

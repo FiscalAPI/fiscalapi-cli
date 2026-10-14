@@ -3,7 +3,7 @@ using FiscalApi.Cli.Http;
 namespace FiscalApi.Cli.Listen;
 
 /// <summary>
-/// Los plazos de <c>fiscalapi listen</c>. <see cref="Default"/> son los del contrato (CLI-004, WH-015); las pruebas los
+/// Los plazos de <c>fiscalapi listen</c>. <see cref="Default"/> son los del contrato con la API; las pruebas los
 /// acortan para no esperar 15 s a un receptor ni 30 s a una reconexión.
 /// </summary>
 /// <param name="ApiTimeout">Timeout del cliente de la API: cubre el long-polling de <paramref name="PollWaitSeconds"/>.</param>

@@ -5,7 +5,7 @@ using FiscalApi.Cli.Input;
 namespace FiscalApi.Cli.Commands.Webhooks;
 
 /// <summary>
-/// <c>fiscalapi webhooks list|retrieve|create|update|delete|rotate-secret</c> (CLI-003): los webhooks del
+/// <c>fiscalapi webhooks list|retrieve|create|update|delete|rotate-secret</c>: los webhooks del
 /// tenant sobre <c>/api/v4/webhooks</c>. Sin subcomando muestra la ayuda.
 /// </summary>
 public sealed class WebhooksCommand : Command

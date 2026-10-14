@@ -14,7 +14,7 @@ using Microsoft.AspNetCore.Http;
 namespace FiscalApi.Cli.Tests.Listen;
 
 /// <summary>
-/// CLI-004: <c>fiscalapi listen</c> contra la escucha de CLI de fapi-back simulada en Kestrel (<see cref="FakeListenerApi"/>)
+/// <c>fiscalapi listen</c> contra la escucha de CLI de la API simulada en Kestrel (<see cref="FakeListenerApi"/>)
 /// y un receptor local también en Kestrel (<see cref="FakeReceiver"/>), con sockets reales. Integridad de la firma,
 /// acuses, reconexión y salida.
 /// </summary>
@@ -90,7 +90,7 @@ public sealed class ListenCommandTests : IAsyncLifetime
     [Fact]
     public async Task During_a_secret_rotation_both_signatures_reach_the_receiver_unchanged()
     {
-        // D-02: varias firmas separadas por un espacio mientras rota el secreto.
+        // Standard Webhooks: varias firmas separadas por un espacio mientras rota el secreto.
         const string rotation = "v1,K5oZfzN95Z9UVu1EsfQmfVNQhnkZ2pj9o9NDN/H/pI4= v1,bm9uY2UtZGUtbGEtZmlybWEtYW50ZXJpb3I=";
         _api.Deliver(new FakeDelivery("dlv_0001", "evt_0001", "invoice.canceled", SignatureHeader: rotation));
         _receiver = await FakeReceiver.StartAsync();
@@ -812,7 +812,7 @@ public sealed class ListenCommandTests : IAsyncLifetime
         Assert.Empty(Out);
     }
 
-    // La línea de cada evento en la hora local (CLI-004): fecha, hora, flecha, tipo, [eventId] y el resultado.
+    // La línea de cada evento en la hora local: fecha, hora, flecha, tipo, [eventId] y el resultado.
     private static string EventLine(string type, string eventId, string suffix) =>
         $@"(?m)^\d{{4}}-\d{{2}}-\d{{2}} \d{{2}}:\d{{2}}:\d{{2}}  --> {Regex.Escape(type)} \[{Regex.Escape(eventId)}\]{Regex.Escape(suffix)}\r?$";
 

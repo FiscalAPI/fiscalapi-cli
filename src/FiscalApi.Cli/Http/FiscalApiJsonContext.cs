@@ -18,7 +18,7 @@ namespace FiscalApi.Cli.Http;
 [JsonSerializable(typeof(ApiResponse<bool>))]
 [JsonSerializable(typeof(ListenSecretRecord))]
 [JsonSerializable(typeof(ListenEventRecord))]
-// CLI-003: el data se lee como JsonElement para imprimirlo sin cambios; los modelos solo alimentan la salida de texto.
+// El data se lee como JsonElement para imprimirlo sin cambios; los modelos solo alimentan la salida de texto.
 [JsonSerializable(typeof(ApiResponse<JsonElement>))]
 [JsonSerializable(typeof(Webhook))]
 [JsonSerializable(typeof(PagedList<Webhook>))]

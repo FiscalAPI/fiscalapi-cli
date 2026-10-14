@@ -4,13 +4,13 @@ using FiscalApi.Cli.Credentials.Windows;
 
 namespace FiscalApi.Cli.Credentials;
 
-/// <summary>Elige el almacén de credenciales del SO en que corre el binario (D-25, CLI-002).</summary>
+/// <summary>Elige el almacén de credenciales del SO en que corre el binario.</summary>
 public static class CredentialStores
 {
     /// <summary>Nombre de servicio de las entradas del CLI; las pruebas usan otro para no tocarlas.</summary>
     public const string ProductionService = "fiscalapi-cli";
 
-    /// <exception cref="PlatformNotSupportedException">Un SO para el que no se publica el CLI (D-24).</exception>
+    /// <exception cref="PlatformNotSupportedException">Un SO para el que no se publica el CLI.</exception>
     public static ICredentialStore ForCurrentOs(string service) =>
         OperatingSystem.IsWindows() ? new WindowsCredentialStore(service)
         : OperatingSystem.IsMacOS() ? new KeychainCredentialStore(service)

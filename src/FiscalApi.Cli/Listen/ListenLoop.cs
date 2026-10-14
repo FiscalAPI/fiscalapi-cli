@@ -41,7 +41,7 @@ public sealed class ListenLoop(
                 deliveries = await api.PollAsync(session, cancellationToken).ConfigureAwait(false);
             }
             // 410: la sesión caducó (más de 60 s sin long-polling, p. ej. tras un corte). Se reabre sin terminar; lo que
-            // pasó mientras tanto no llega (D-26) y se recupera con events resend. El primero reabre de inmediato; otro
+            // pasó mientras tanto no llega y se recupera con events resend. El primero reabre de inmediato; otro
             // sin un long-polling exitoso de por medio espera el backoff, para no quedar girando.
             catch (ApiException expired) when (expired.StatusCode == HttpStatusCode.Gone)
             {

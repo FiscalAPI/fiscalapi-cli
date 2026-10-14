@@ -1,7 +1,7 @@
 namespace FiscalApi.Cli;
 
 /// <summary>
-/// Ambiente de la API contra el que trabaja una invocación (D-25). Se resuelve una sola vez por invocación
+/// Ambiente de la API contra el que trabaja una invocación. Se resuelve una sola vez por invocación
 /// y viaja como valor inmutable, sin estáticos mutables.
 /// </summary>
 public sealed record ApiEnvironment
@@ -16,7 +16,7 @@ public sealed record ApiEnvironment
 
     /// <summary>
     /// Host (y puerto, si no es el de omisión) de la API: identifica la entrada del almacén de credenciales y es
-    /// lo que ven los mensajes. Así test, live y cada back local guardan credenciales separadas (D-25).
+    /// lo que ven los mensajes. Así test, live y cada back local guardan credenciales separadas.
     /// </summary>
     public string Host => BaseAddress.Authority;
 

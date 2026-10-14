@@ -1,6 +1,6 @@
 namespace FiscalApi.Cli.Listen;
 
-/// <summary>Los headers de Standard Webhooks (D-02) que la API firma y el CLI reenvía sin cambios.</summary>
+/// <summary>Los headers de Standard Webhooks que la API firma y el CLI reenvía sin cambios.</summary>
 public static class WebhookHeaderNames
 {
     /// <summary>El id del evento.</summary>

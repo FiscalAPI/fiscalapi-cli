@@ -6,7 +6,7 @@ using FiscalApi.Cli.Http;
 namespace FiscalApi.Cli.Commands;
 
 /// <summary>
-/// Lo que comparten los comandos que llaman a la API (<c>webhooks</c> y <c>events</c>): las opciones globales, la fábrica
+/// Lo que comparten los comandos que llaman a la API: las opciones globales, la fábrica
 /// de clientes y la salida, más la única regla de salida de sus datos (<see cref="WriteData{T}"/>).
 /// </summary>
 public sealed record ApiCommandContext(GlobalOptions GlobalOptions, FiscalApiClientFactory ApiClients, CliConsole Console)

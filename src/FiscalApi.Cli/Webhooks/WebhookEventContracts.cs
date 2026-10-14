@@ -2,10 +2,10 @@ using System.Text.Json.Serialization;
 
 namespace FiscalApi.Cli.Webhooks;
 
-// Los contratos de los eventos de webhook de fapi-back (WH-013, D-28), con sus mismos nombres.
+// Los contratos de los eventos de webhook de la API, con sus mismos nombres.
 
 /// <summary>
-/// Lo que la tabla de <c>events list</c> muestra del sobre de D-04 (<c>{id, type, createdAt, personId,
+/// Lo que la tabla de <c>events list</c> muestra del sobre del evento (<c>{id, type, createdAt, personId,
 /// data:{relatedObject, status, previousStatus}}</c>). <c>createdAt</c> es texto: la API lo entrega en UTC y se muestra tal
 /// cual.
 /// </summary>
@@ -48,8 +48,8 @@ public sealed record ResendWebhookEventRequest(string WebhookId);
 public sealed record WebhookEventResend(string DeliveryId, string WebhookId);
 
 /// <summary>
-/// El cuerpo de <c>POST /api/v4/events/trigger</c> (<c>TriggerWebhookEventCommand</c>, D-32 con el <c>webhookId</c> de
-/// D-33). Lo que la persona no dio no se escribe: para la API, un id vacío es un error y uno omitido elige el valor por
+/// El cuerpo de <c>POST /api/v4/events/trigger</c> (<c>TriggerWebhookEventCommand</c>).
+/// Lo que la persona no dio no se escribe: para la API, un id vacío es un error y uno omitido elige el valor por
 /// omisión (sin <see cref="WebhookId"/>, la escucha de CLI de quien llama).
 /// </summary>
 public sealed record TriggerWebhookEventRequest(

@@ -6,7 +6,7 @@ namespace FiscalApi.Cli.Commands.Events;
 
 /// <summary>
 /// <c>fiscalapi events resend &lt;eventId&gt; [--webhook &lt;id&gt;]</c>: <c>POST /api/v4/events/{id}/resend</c>.
-/// Sin <c>--webhook</c>, la API lo entrega a la escucha de CLI de la persona (D-28): <c>fiscalapi listen</c> tiene
+/// Sin <c>--webhook</c>, la API lo entrega a la escucha de CLI de la persona: <c>fiscalapi listen</c> tiene
 /// que estar abierto, o responde 409.
 /// </summary>
 public sealed class ResendEventCommand : Command

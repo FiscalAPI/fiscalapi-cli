@@ -13,7 +13,7 @@ namespace FiscalApi.Cli.Commands.Webhooks;
 /// </summary>
 public sealed class UpdateWebhookCommand : Command
 {
-    // El texto de fapi-back (WebhookMessages.CliListenerNotEditable, WH-011, D-21).
+    // El texto de la API (WebhookMessages.CliListenerNotEditable).
     private const string CliListenerNotEditable =
         "Una escucha de CLI no se edita ni se prueba; usa fiscalapi listen y fiscalapi trigger.";
 

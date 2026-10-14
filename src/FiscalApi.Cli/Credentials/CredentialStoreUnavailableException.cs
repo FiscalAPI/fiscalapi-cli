@@ -4,7 +4,7 @@ namespace FiscalApi.Cli.Credentials;
 
 /// <summary>
 /// El SO no tiene un almacén de credenciales utilizable: Linux sin Secret Service, WSL, un servidor o una sesión
-/// sin llavero. No hay archivo plano de respaldo (D-25); la salida es usar las variables de entorno, por eso es un
+/// sin llavero. No hay archivo plano de respaldo; la salida es usar las variables de entorno, por eso es un
 /// error de uso (código 2) y no de la API.
 /// </summary>
 public sealed class CredentialStoreUnavailableException(string detail)

@@ -8,7 +8,7 @@ using FiscalApi.Cli.Input;
 namespace FiscalApi.Cli.Commands;
 
 /// <summary>
-/// <c>fiscalapi login</c> (CLI-002, D-25): pide la API key y la tenant key, las valida con
+/// <c>fiscalapi login</c>: pide la API key y la tenant key, las valida con
 /// <c>GET /api/v4/me/features</c> y las guarda en el almacén del SO, en la entrada del host del ambiente.
 /// No usa las variables de entorno: guarda lo que la persona acaba de dar.
 /// </summary>
