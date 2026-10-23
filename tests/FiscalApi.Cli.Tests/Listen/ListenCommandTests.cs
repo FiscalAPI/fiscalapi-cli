@@ -338,10 +338,16 @@ public sealed class ListenCommandTests : IAsyncLifetime
 
         StartListen(verbose ? ["--verbose"] : []);
         await ExpectAsync(_api.WaitForAcksAsync(2));
+        var diagnostic = $"Could not acknowledge delivery dlv_0001: {notAwaiting}";
+        if (verbose)
+        {
+            await WaitForErrorAsync(diagnostic);
+        }
 
-        Assert.Equal(verbose, Error.Contains($"Could not acknowledge delivery dlv_0001: {notAwaiting}"));
         Assert.Equal(2, _api.Acks.Count);
         Assert.False(_run!.IsCompleted, "listen terminó por un acuse tardío.");
+        Assert.Equal(ExitCodes.Cancelled, await PressCtrlCAsync());
+        Assert.Equal(verbose, Error.Contains(diagnostic));
     }
 
     [Fact]
@@ -355,7 +361,7 @@ public sealed class ListenCommandTests : IAsyncLifetime
         await ExpectAsync(_api.WaitForAcksAsync(2));
         await ExpectAsync(_api.WaitForPollsAsync(3));
 
-        Assert.Contains("Could not acknowledge delivery dlv_0001: No se encontró el recurso dlv_0001.", Error);
+        await WaitForErrorAsync("Could not acknowledge delivery dlv_0001: No se encontró el recurso dlv_0001.");
         Assert.False(_run!.IsCompleted, "listen terminó por un acuse rechazado.");
     }
 
@@ -799,6 +805,9 @@ public sealed class ListenCommandTests : IAsyncLifetime
 
     private static string EventLine(string type, string eventId, string suffix) =>
         $@"(?m)^\d{{4}}-\d{{2}}-\d{{2}} \d{{2}}:\d{{2}}:\d{{2}}  {Regex.Escape(type)} \[{Regex.Escape(eventId)}\]{Regex.Escape(suffix)}\r?$";
+
+    private Task WaitForErrorAsync(string line) =>
+        ExpectAsync(FakeListenerApi.WaitUntilAsync(() => Error.Contains(line, StringComparison.Ordinal), $"No llegó a stderr: {line}"));
 
     private async Task ExpectAsync(Task condition)
     {
