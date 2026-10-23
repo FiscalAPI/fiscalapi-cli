@@ -13,10 +13,6 @@ using FiscalApi.Cli.Tests.Updates;
 
 namespace FiscalApi.Cli.Tests.Commands;
 
-/// <summary>
-/// Corre <c>fiscalapi webhooks …</c>, <c>fiscalapi events …</c> y <c>fiscalapi trigger …</c> con la misma composición que <c>Program</c>, sobre
-/// la API simulada (<see cref="StubHttpMessageHandler"/>) y las credenciales de las variables de entorno.
-/// </summary>
 internal sealed class ApiCommandHarness
 {
     public const string ApiKey = "sk_test_clave-de-comandos";
@@ -31,11 +27,6 @@ internal sealed class ApiCommandHarness
     private readonly StringWriter _out = new();
     private readonly StringWriter _error = new();
 
-    /// <param name="args">El comando sin <c>--api-base</c>, que se agrega aquí.</param>
-    /// <param name="confirmationInput">Lo que la persona escribe al confirmar (<c>delete</c> sin <c>--yes</c>).</param>
-    /// <param name="interactive">Si hay una persona en la terminal; con stdin redirigido, no.</param>
-    /// <param name="confirmation">Otra confirmación en lugar de la de consola (p. ej. una que simula Ctrl+C).</param>
-    /// <param name="cancellationToken">El token que Program cancela con Ctrl+C.</param>
     public Task<int> RunAsync(
         IEnumerable<string> args,
         string confirmationInput = "",
@@ -66,15 +57,12 @@ internal sealed class ApiCommandHarness
 
     public Task<int> RunAsync(params string[] args) => RunAsync((IEnumerable<string>)args);
 
-    /// <summary>El envelope de éxito de fapi-back con <paramref name="data"/> tal cual.</summary>
     public static string Success(string data) => $$"""{"data":{{data}},"succeeded":true,"message":"","details":""}""";
 
-    /// <summary>La única request que recibió la API.</summary>
     public HttpRequestMessage SingleRequest() => Assert.Single(Api.Requests);
 
     public JsonNode? Body(int index = 0) => Api.RequestBodies[index] is { } body ? JsonNode.Parse(body) : null;
 
-    /// <summary>Stdout es exactamente <paramref name="rawData"/> más el salto de línea, y es JSON válido.</summary>
     public void AssertJsonOut(string rawData)
     {
         Assert.Equal(rawData + Environment.NewLine, Out);

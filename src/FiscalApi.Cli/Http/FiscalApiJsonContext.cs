@@ -5,10 +5,6 @@ using FiscalApi.Cli.Webhooks;
 
 namespace FiscalApi.Cli.Http;
 
-/// <summary>
-/// Contrato JSON del CLI generado en compilación: la serialización por reflexión no funciona en Native AOT.
-/// Los comandos agregan aquí los tipos de sus requests y respuestas (los enums con <c>JsonStringEnumConverter&lt;TEnum&gt;</c>).
-/// </summary>
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
 [JsonSerializable(typeof(ApiResponse<PersonFeatures>))]
 [JsonSerializable(typeof(OpenCliListenerRequest))]
@@ -18,7 +14,6 @@ namespace FiscalApi.Cli.Http;
 [JsonSerializable(typeof(ApiResponse<bool>))]
 [JsonSerializable(typeof(ListenSecretRecord))]
 [JsonSerializable(typeof(ListenEventRecord))]
-// El data se lee como JsonElement para imprimirlo sin cambios; los modelos solo alimentan la salida de texto.
 [JsonSerializable(typeof(ApiResponse<JsonElement>))]
 [JsonSerializable(typeof(Webhook))]
 [JsonSerializable(typeof(PagedList<Webhook>))]

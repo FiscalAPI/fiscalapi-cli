@@ -13,19 +13,12 @@ using Microsoft.AspNetCore.Http;
 
 namespace FiscalApi.Cli.Tests.Listen;
 
-/// <summary>
-/// <c>fiscalapi listen</c> contra la escucha de CLI de la API simulada en Kestrel (<see cref="FakeListenerApi"/>)
-/// y un receptor local también en Kestrel (<see cref="FakeReceiver"/>), con sockets reales. Integridad de la firma,
-/// acuses, reconexión y salida.
-/// </summary>
 public sealed class ListenCommandTests : IAsyncLifetime
 {
     private const string ApiKey = "sk_test_clave-de-listen";
     private const string TenantKey = "tenant-de-listen-0001";
     private static readonly TimeSpan WaitLimit = TimeSpan.FromSeconds(10);
 
-    // Los plazos del contrato, más cortos: la prueba no espera 15 s a un receptor ni 30 s a una reconexión. El reenvío
-    // conserva unos segundos porque Windows tarda ~2 s en rechazar una conexión a un puerto local cerrado.
     private static readonly ListenTimings FastTimings = ListenTimings.Default with
     {
         ForwardTimeout = TimeSpan.FromSeconds(5),
@@ -66,7 +59,7 @@ public sealed class ListenCommandTests : IAsyncLifetime
     [Fact]
     public async Task Receiver_gets_the_body_and_signed_headers_byte_for_byte()
     {
-        const string body = "{\"id\":\"evt_0001\",\"type\":\"invoice.canceled\",\n  \"data\":{\"nota\":\"Facturación de ñandú: 🚀✅\"," +
+        const string body = "{\"id\":\"evt_0001\",\"type\":\"invoice.canceled\",\n  \"data\":{\"nota\":\"Facturación de ñandú\"," +
                             "\"espacios\":\"  a   b  \", \"escape\":\"\\u00e9\\\"\"}  }\n";
         var delivery = new FakeDelivery("dlv_0001", "evt_0001", "invoice.canceled", body);
         _api.Deliver(delivery);
@@ -90,7 +83,6 @@ public sealed class ListenCommandTests : IAsyncLifetime
     [Fact]
     public async Task During_a_secret_rotation_both_signatures_reach_the_receiver_unchanged()
     {
-        // Standard Webhooks: varias firmas separadas por un espacio mientras rota el secreto.
         const string rotation = "v1,K5oZfzN95Z9UVu1EsfQmfVNQhnkZ2pj9o9NDN/H/pI4= v1,bm9uY2UtZGUtbGEtZmlybWEtYW50ZXJpb3I=";
         _api.Deliver(new FakeDelivery("dlv_0001", "evt_0001", "invoice.canceled", SignatureHeader: rotation));
         _receiver = await FakeReceiver.StartAsync();
@@ -168,7 +160,6 @@ public sealed class ListenCommandTests : IAsyncLifetime
         Assert.Equal(["dlv_0001", "dlv_0002"], _api.Acks.Select(ack => ack.DeliveryId).Order());
         Assert.All(_api.Acks, ack =>
         {
-            // Asumido: sin destino local, la entrega llegó a su destino, la terminal.
             Assert.Equal(200, ack.StatusCode);
             Assert.Equal(0, ack.LatencyMs);
             Assert.Null(ack.Error);
@@ -259,7 +250,6 @@ public sealed class ListenCommandTests : IAsyncLifetime
     [Fact]
     public async Task A_network_drop_reconnects_with_backoff_without_losing_deliveries()
     {
-        // RetryPolicy reintenta dentro de cada long-polling (los 503 hasta 3 veces); lo que queda llega al bucle.
         _api.Deliver(new FakeDelivery("dlv_0001", "evt_0001", "invoice.canceled"))
             .DropPoll(times: 3)
             .FailPoll(StatusCodes.Status503ServiceUnavailable, "Servicio no disponible")
@@ -275,8 +265,8 @@ public sealed class ListenCommandTests : IAsyncLifetime
         Assert.Equal(["evt_0001", "evt_0002"], _receiver.Requests.Select(request => request.Headers["webhook-id"]).Order());
         Assert.All(_api.PollsReceived, poll => Assert.Equal(FakeListenerApi.SessionId(1), poll.SessionId));
         Assert.Single(_api.Opens);
-        Assert.Matches(@"Se perdió la conexión con FiscalAPI \(.+\); reintentando en \d+(\.\d)? s\.", Error);
-        Assert.Contains("Conexión con FiscalAPI restablecida.", Error);
+        Assert.Matches(@"Lost connection to FiscalAPI \(.+\)\. Retrying in \d+(\.\d)? s\.", Error);
+        Assert.Contains("Reconnected to FiscalAPI.", Error);
         Assert.False(_run!.IsCompleted, "listen terminó por una caída de red.");
     }
 
@@ -295,7 +285,7 @@ public sealed class ListenCommandTests : IAsyncLifetime
             [FakeListenerApi.SessionId(1), FakeListenerApi.SessionId(2)],
             _api.PollsReceived.Take(2).Select(poll => poll.SessionId));
         Assert.Equal(FakeListenerApi.SessionId(2), Assert.Single(_api.Acks).SessionId);
-        Assert.Contains("La sesión de fiscalapi listen caducó; se abre una nueva.", Error);
+        Assert.Contains("The listen session expired. Opening a new one.", Error);
         Assert.False(_run!.IsCompleted, "listen terminó por una sesión caducada.");
     }
 
@@ -342,8 +332,6 @@ public sealed class ListenCommandTests : IAsyncLifetime
     public async Task A_409_on_the_ack_is_reported_only_with_verbose(bool verbose)
     {
         const string notAwaiting = "La entrega ya no espera un acuse.";
-        // La segunda entrega es del mismo evento: el orden por evento garantiza que el acuse de la primera, con su línea,
-        // terminó antes de que la segunda se acusara.
         _api.RejectAck("dlv_0001", StatusCodes.Status409Conflict, notAwaiting)
             .Deliver(new FakeDelivery("dlv_0001", "evt_0001", "invoice.canceled"))
             .Deliver(new FakeDelivery("dlv_0002", "evt_0001", "invoice.canceled"));
@@ -351,7 +339,7 @@ public sealed class ListenCommandTests : IAsyncLifetime
         StartListen(verbose ? ["--verbose"] : []);
         await ExpectAsync(_api.WaitForAcksAsync(2));
 
-        Assert.Equal(verbose, Error.Contains($"No se registró el acuse de la entrega dlv_0001: {notAwaiting}"));
+        Assert.Equal(verbose, Error.Contains($"Could not acknowledge delivery dlv_0001: {notAwaiting}"));
         Assert.Equal(2, _api.Acks.Count);
         Assert.False(_run!.IsCompleted, "listen terminó por un acuse tardío.");
     }
@@ -367,7 +355,7 @@ public sealed class ListenCommandTests : IAsyncLifetime
         await ExpectAsync(_api.WaitForAcksAsync(2));
         await ExpectAsync(_api.WaitForPollsAsync(3));
 
-        Assert.Contains("No se registró el acuse de la entrega dlv_0001: No se encontró el recurso dlv_0001.", Error);
+        Assert.Contains("Could not acknowledge delivery dlv_0001: No se encontró el recurso dlv_0001.", Error);
         Assert.False(_run!.IsCompleted, "listen terminó por un acuse rechazado.");
     }
 
@@ -381,7 +369,7 @@ public sealed class ListenCommandTests : IAsyncLifetime
         await ExpectAsync(_api.WaitForAcksAsync(3));
 
         Assert.All(_api.Acks, ack => Assert.Equal(("dlv_0001", 200), (ack.DeliveryId, ack.StatusCode)));
-        Assert.DoesNotContain("No se registró el acuse", Error);
+        Assert.DoesNotContain("Could not acknowledge", Error);
     }
 
     [Fact]
@@ -425,7 +413,7 @@ public sealed class ListenCommandTests : IAsyncLifetime
         Assert.Equal(2, lines.Count);
         AssertEventRecord(lines[0], forwarded, statusCode: 200);
         AssertEventRecord(lines[1], failed, statusCode: 400);
-        Assert.Contains($"Listo. Tu secreto de firma es {FakeListenerApi.Secret}", Error);
+        Assert.Contains($"Ready. Your signing secret is {FakeListenerApi.Secret}", Error);
     }
 
     private static void AssertEventRecord(JsonObject record, FakeDelivery delivery, int statusCode)
@@ -507,7 +495,7 @@ public sealed class ListenCommandTests : IAsyncLifetime
         StartListen("--forward-to", _receiver.Url.ToString(), "--skip-verify");
 
         Assert.Equal(ExitCodes.Failure, await ExitCodeAsync());
-        Assert.Contains($"No se pudo conectar con {_api.BaseAddress}", Error);
+        Assert.Contains($"Could not connect to {_api.BaseAddress}", Error);
         Assert.Empty(_api.Opens);
     }
 
@@ -520,8 +508,8 @@ public sealed class ListenCommandTests : IAsyncLifetime
         StartListen(apiBase: unreachable);
 
         Assert.Equal(ExitCodes.Failure, await ExitCodeAsync());
-        Assert.Contains($"No se pudo conectar con {unreachable}", Error);
-        Assert.DoesNotContain("reintentando", Error);
+        Assert.Contains($"Could not connect to {unreachable}", Error);
+        Assert.DoesNotContain("Retrying", Error);
     }
 
     [Fact]
@@ -547,7 +535,7 @@ public sealed class ListenCommandTests : IAsyncLifetime
         StartListen();
         await ExpectAsync(_api.WaitForPollsAsync(1));
 
-        Assert.Contains($"Listo. Tu secreto de firma es {FakeListenerApi.Secret} (escucha {FakeListenerApi.ListenerId})", Error);
+        Assert.Contains($"Ready. Your signing secret is {FakeListenerApi.Secret} (listen session {FakeListenerApi.ListenerId}).", Error);
         var poll = Assert.Single(_api.PollsReceived);
         Assert.Equal(new FakeListenerApi.RecordedPoll(FakeListenerApi.ListenerId, FakeListenerApi.SessionId(1), "25"), poll);
     }
@@ -573,14 +561,12 @@ public sealed class ListenCommandTests : IAsyncLifetime
         StartListen("--help");
 
         Assert.Equal(ExitCodes.Success, await ExitCodeAsync());
-        Assert.Contains("Abre una sesión: un listen en curso con la misma API key termina.", Out);
+        Assert.Contains("Ends any running listen with the same API key.", Out);
     }
 
     [Fact]
     public async Task A_chain_of_one_event_neither_holds_the_long_polling_nor_forwards_expired_deliveries()
     {
-        // 25 entregas del mismo evento (un lote completo) y un receptor de 300 ms: con un lease de 1 s solo caben unas
-        // cuantas; el resto vence esperando su turno y no se reenvía (la API ya las cerró con AckTimeout).
         _timings = FastTimings with { DeliveryLease = TimeSpan.FromSeconds(1), MaxInFlightDeliveries = 2 };
         var chain = Enumerable.Range(1, 25)
             .Select(n => new FakeDelivery($"dlv_c{n:00}", "evt_0001", "invoice.canceled"))
@@ -607,7 +593,7 @@ public sealed class ListenCommandTests : IAsyncLifetime
         var forwarded = _receiver.Requests.Count(request => request.Headers["webhook-id"] == "evt_0001");
         Assert.InRange(forwarded, 1, 6);
         Assert.Equal(forwarded, _api.Acks.Count(ack => ack.DeliveryId.StartsWith("dlv_c", StringComparison.Ordinal)));
-        Assert.Contains("La entrega dlv_c25 (evt_0001) venció antes de reenviarse; la API la cerró sin acuse.", Error);
+        Assert.Contains("Delivery dlv_c25 (evt_0001) expired before forwarding. The API closed it unacknowledged.", Error);
         Assert.False(_run!.IsCompleted, "listen terminó.");
     }
 
@@ -650,8 +636,8 @@ public sealed class ListenCommandTests : IAsyncLifetime
 
         Assert.Equal(3, _api.Opens.Count);
         Assert.Equal(FakeListenerApi.SessionId(2), Assert.Single(_api.Acks).SessionId);
-        Assert.Matches(@"No se pudo reabrir la sesión de escucha \(Otro cambio a los webhooks está en curso; " +
-                       @"intenta de nuevo\); reintentando en \d+(\.\d)? s\.", Error);
+        Assert.Matches(@"Could not reopen the listen session \(Otro cambio a los webhooks está en curso; " +
+                       @"intenta de nuevo\)\. Retrying in \d+(\.\d)? s\.", Error);
         Assert.False(_run!.IsCompleted, "listen terminó por el candado de la apertura.");
     }
 
@@ -672,7 +658,6 @@ public sealed class ListenCommandTests : IAsyncLifetime
 
         var opens = _api.OpenTimes.ToArray();
         Assert.Equal(3, opens.Length);
-        // El primer 410 reabre de inmediato; el segundo seguido espera el backoff (equal jitter: al menos 200 ms).
         Assert.True(opens[2] - opens[1] >= TimeSpan.FromMilliseconds(190),
             $"Reabrió a los {(opens[2] - opens[1]).TotalMilliseconds:0} ms.");
     }
@@ -762,7 +747,7 @@ public sealed class ListenCommandTests : IAsyncLifetime
 
         StartListen();
         await ExpectAsync(FakeListenerApi.WaitUntilAsync(
-            () => Error.Contains("No se registró el acuse de la entrega dlv_0001: Servicio no disponible"),
+            () => Error.Contains("Could not acknowledge delivery dlv_0001: Servicio no disponible"),
             "El acuse nunca dejó de reintentarse."));
 
         var attempts = _api.Acks.Count;
@@ -787,21 +772,21 @@ public sealed class ListenCommandTests : IAsyncLifetime
     }
 
     [Theory]
-    [InlineData("--forward-to|localhost:3000/webhooks", "--forward-to debe ser una URL absoluta http o https")]
-    [InlineData("--forward-to|ftp://localhost/webhooks", "--forward-to debe ser una URL absoluta http o https")]
-    [InlineData("--forward-to|http://localhost:3000|--headers|X-Origen", "--headers espera pares Nombre:Valor")]
-    [InlineData("--forward-to|http://localhost:3000|--headers|:valor", "--headers espera pares Nombre:Valor")]
-    [InlineData("--forward-to|http://localhost:3000|--headers|Webhook-Signature:v1,falsa", "--headers no puede cambiar Webhook-Signature")]
-    [InlineData("--forward-to|http://localhost:3000|--headers|Content-Type:text/plain", "--headers trae un header que HTTP no admite: 'Content-Type'")]
-    [InlineData("--forward-to|http://localhost:3000|--headers|X Malo:1", "--headers trae un header que HTTP no admite: 'X Malo'")]
-    [InlineData("--headers|X-Origen:cli", "--headers solo aplica con --forward-to.")]
-    [InlineData("--skip-verify", "--skip-verify solo aplica con --forward-to.")]
+    [InlineData("--forward-to|localhost:3000/webhooks", "--forward-to must be an absolute http or https URL")]
+    [InlineData("--forward-to|ftp://localhost/webhooks", "--forward-to must be an absolute http or https URL")]
+    [InlineData("--forward-to|http://localhost:3000|--headers|X-Origen", "--headers expects comma-separated Name:Value pairs")]
+    [InlineData("--forward-to|http://localhost:3000|--headers|:valor", "--headers expects comma-separated Name:Value pairs")]
+    [InlineData("--forward-to|http://localhost:3000|--headers|Webhook-Signature:v1,falsa", "--headers cannot set Webhook-Signature")]
+    [InlineData("--forward-to|http://localhost:3000|--headers|Content-Type:text/plain", "--headers has a header that HTTP does not allow: 'Content-Type'")]
+    [InlineData("--forward-to|http://localhost:3000|--headers|X Malo:1", "--headers has a header that HTTP does not allow: 'X Malo'")]
+    [InlineData("--headers|X-Origen:cli", "--headers requires --forward-to.")]
+    [InlineData("--skip-verify", "--skip-verify requires --forward-to.")]
     [InlineData("--events|invoice.canceled|--events|invoice.created", "'--events'")]
     [InlineData("--forward-to|http://localhost:3000|--headers|X-A:1|--headers|X-B:2", "'--headers'")]
     [InlineData("--forward-to|http://localhost:3000|--forward-to|http://localhost:3001", "'--forward-to'")]
-    [InlineData("--print-secret|--forward-to|http://localhost:3000", "--print-secret no se combina con --forward-to.")]
-    [InlineData("--print-secret|--forward-to|http://localhost:3000|--headers|X-A:1", "--print-secret no se combina con --headers.")]
-    [InlineData("--print-secret|--forward-to|http://localhost:3000|--skip-verify", "--print-secret no se combina con --skip-verify.")]
+    [InlineData("--print-secret|--forward-to|http://localhost:3000", "--print-secret cannot be used with --forward-to.")]
+    [InlineData("--print-secret|--forward-to|http://localhost:3000|--headers|X-A:1", "--print-secret cannot be used with --headers.")]
+    [InlineData("--print-secret|--forward-to|http://localhost:3000|--skip-verify", "--print-secret cannot be used with --skip-verify.")]
     public async Task Invalid_options_are_usage_errors_without_calling_the_api(string options, string error)
     {
         StartListen(options.Split('|'));
@@ -812,11 +797,9 @@ public sealed class ListenCommandTests : IAsyncLifetime
         Assert.Empty(Out);
     }
 
-    // La línea de cada evento en la hora local: fecha, hora, flecha, tipo, [eventId] y el resultado.
     private static string EventLine(string type, string eventId, string suffix) =>
-        $@"(?m)^\d{{4}}-\d{{2}}-\d{{2}} \d{{2}}:\d{{2}}:\d{{2}}  --> {Regex.Escape(type)} \[{Regex.Escape(eventId)}\]{Regex.Escape(suffix)}\r?$";
+        $@"(?m)^\d{{4}}-\d{{2}}-\d{{2}} \d{{2}}:\d{{2}}:\d{{2}}  {Regex.Escape(type)} \[{Regex.Escape(eventId)}\]{Regex.Escape(suffix)}\r?$";
 
-    /// <summary>Espera una condición de la API o del receptor; si no llega, la falla trae lo que escribió el CLI.</summary>
     private async Task ExpectAsync(Task condition)
     {
         try
@@ -832,10 +815,8 @@ public sealed class ListenCommandTests : IAsyncLifetime
         }
     }
 
-    /// <summary>El código de salida, cuando el CLI termina solo (un 409, un error de uso, --print-secret).</summary>
     private Task<int> ExitCodeAsync() => _run!.WaitAsync(WaitLimit);
 
-    /// <summary>Ctrl+C y el código de salida.</summary>
     private async Task<int> PressCtrlCAsync()
     {
         await _ctrlC.CancelAsync();

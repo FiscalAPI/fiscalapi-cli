@@ -3,16 +3,11 @@ using System.Security.Cryptography;
 
 namespace FiscalApi.Cli.Credentials.MacOS;
 
-/// <summary>
-/// Llavero de macOS: una contraseña genérica (<c>kSecClassGenericPassword</c>) por host, con servicio
-/// <c>fiscalapi-cli</c> y cuenta igual al host. Se ve en "Acceso a Llaveros".
-/// Usa el llavero de sesión del usuario y no el de protección de datos (<c>kSecUseDataProtectionKeychain</c>),
-/// que exige firmar el binario con el entitlement <c>keychain-access-groups</c>.
-/// </summary>
 [SupportedOSPlatform("macos")]
 internal sealed unsafe class KeychainCredentialStore(string service) : ICredentialStore
 {
-    // Sin kSecReturnData la consulta solo dice si la entrada existe: no lee el secreto ni pide permiso para leerlo.
+    private const string StoreName = "macOS Keychain";
+
     public void EnsureAvailable(string host)
     {
         using var serviceName = CoreFoundation.CreateString(service);
@@ -24,7 +19,7 @@ internal sealed unsafe class KeychainCredentialStore(string service) : ICredenti
         var status = SecurityFramework.SecItemCopyMatching(Raw(query), result: null);
         if (status != SecurityFramework.ItemNotFound)
         {
-            ThrowIfFailed(status, "consultar");
+            ThrowIfFailed(status, "check");
         }
     }
 
@@ -43,8 +38,7 @@ internal sealed unsafe class KeychainCredentialStore(string service) : ICredenti
             return null;
         }
 
-        ThrowIfFailed(status, "leer");
-        // Un CFData inmutable no se puede borrar en su lugar: se libera en cuanto se decodifica.
+        ThrowIfFailed(status, "read");
         using var data = CFHandle.Owned(result);
         return StoredCredentialsFormat.Decode(CoreFoundation.GetBytes(data), host);
     }
@@ -59,7 +53,6 @@ internal sealed unsafe class KeychainCredentialStore(string service) : ICredenti
             [SecurityFramework.ClassGenericPassword, Raw(serviceName), Raw(account)]);
         using var update = CoreFoundation.CreateDictionary([SecurityFramework.ValueData], [Raw(data)]);
 
-        // Reemplazar primero conserva el permiso de acceso que la persona ya dio a la entrada.
         var status = SecurityFramework.SecItemUpdate(Raw(query), Raw(update));
         if (status == SecurityFramework.ItemNotFound)
         {
@@ -70,7 +63,7 @@ internal sealed unsafe class KeychainCredentialStore(string service) : ICredenti
             status = SecurityFramework.SecItemAdd(Raw(item), result: null);
         }
 
-        ThrowIfFailed(status, "guardar");
+        ThrowIfFailed(status, "save");
     }
 
     public bool Delete(string host)
@@ -87,7 +80,7 @@ internal sealed unsafe class KeychainCredentialStore(string service) : ICredenti
             return false;
         }
 
-        ThrowIfFailed(status, "borrar");
+        ThrowIfFailed(status, "delete");
         return true;
     }
 
@@ -104,7 +97,6 @@ internal sealed unsafe class KeychainCredentialStore(string service) : ICredenti
         }
     }
 
-    // Los diccionarios retienen sus llaves y valores; los handles siguen vivos por los using de cada operación.
     private static nint Raw(CFHandle value) => value.DangerousGetHandle();
 
     private static void ThrowIfFailed(int status, string operation)
@@ -114,13 +106,11 @@ internal sealed unsafe class KeychainCredentialStore(string service) : ICredenti
             return;
         }
 
-        var detail = $"llavero de macOS, OSStatus {status}";
+        var detail = $"{StoreName}: OSStatus {status}";
         throw status switch
         {
-            // Sin llavero de sesión: no hay almacén y la salida son las variables de entorno.
             SecurityFramework.NotAvailable or SecurityFramework.NoSuchKeychain or SecurityFramework.NoDefaultKeychain =>
                 new CredentialStoreUnavailableException(detail),
-            // El llavero existe pero está bloqueado y no se puede pedir la contraseña (p. ej. por SSH).
             SecurityFramework.InteractionNotAllowed => CredentialStoreException.Locked(detail),
             _ => CredentialStoreException.Failed(operation, detail)
         };

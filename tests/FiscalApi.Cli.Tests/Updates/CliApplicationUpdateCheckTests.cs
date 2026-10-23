@@ -4,10 +4,6 @@ using FiscalApi.Cli.Updates;
 
 namespace FiscalApi.Cli.Tests.Updates;
 
-/// <summary>
-/// Cómo <see cref="CliApplication"/> usa el aviso de versión nueva: corre en paralelo al comando, se escribe en stderr al
-/// final y nunca cambia stdout ni el código de salida.
-/// </summary>
 public sealed class CliApplicationUpdateCheckTests
 {
     private readonly StringWriter _out = new();
@@ -72,7 +68,6 @@ public sealed class CliApplicationUpdateCheckTests
     [Fact]
     public async Task Ctrl_c_still_shows_a_notice_that_was_already_known()
     {
-        // fiscalapi listen siempre termina con Ctrl+C: si el aviso ya llegó durante la escucha, se muestra.
         using var cancellation = new CancellationTokenSource();
         var check = new ScriptedUpdateCheck(Task.FromResult<UpdateNotice?>(Notice()));
 
@@ -108,7 +103,6 @@ public sealed class CliApplicationUpdateCheckTests
         Assert.Empty(_error.ToString());
     }
 
-    /// <summary>Un comando que espera hasta que llega Ctrl+C, como fiscalapi listen.</summary>
     private static Command CancelledByCtrlC(CancellationTokenSource cancellation)
     {
         var probe = new Command("probe");
@@ -154,7 +148,6 @@ public sealed class CliApplicationUpdateCheckTests
     private Task<int> RunAsync(string[] args, Command command, IUpdateCheck check, CancellationToken cancellationToken = default) =>
         new CliApplication(new GlobalOptions(), [command], new CliConsole(_out, _error), check).RunAsync(args, cancellationToken);
 
-    /// <summary>Devuelve el resultado que se le da y anota con qué opciones globales se le pidió empezar.</summary>
     private sealed class ScriptedUpdateCheck(Task<UpdateNotice?> result) : IUpdateCheck
     {
         public List<GlobalSettings> Settings { get; } = [];

@@ -2,7 +2,6 @@ using FiscalApi.Cli.Credentials;
 
 namespace FiscalApi.Cli.Tests.Credentials;
 
-/// <summary>Almacén en memoria para las pruebas de comandos: no toca el almacén real del SO.</summary>
 internal sealed class InMemoryCredentialStore : ICredentialStore
 {
     private readonly Dictionary<string, ApiCredentials> _entries = new(StringComparer.OrdinalIgnoreCase);
@@ -20,7 +19,6 @@ internal sealed class InMemoryCredentialStore : ICredentialStore
     public bool Delete(string host) => _entries.Remove(host);
 }
 
-/// <summary>Como Linux sin Secret Service, WSL o un servidor: cada operación reporta que no hay almacén.</summary>
 internal sealed class UnavailableCredentialStore : ICredentialStore
 {
     public const string Detail = "org.freedesktop.secrets no está disponible (prueba)";
@@ -34,10 +32,6 @@ internal sealed class UnavailableCredentialStore : ICredentialStore
     public bool Delete(string host) => throw new CredentialStoreUnavailableException(Detail);
 }
 
-/// <summary>
-/// El almacén existe pero no se puede usar: el llavero está bloqueado y no se puede pedir la contraseña, o el
-/// Secret Service no respondió. No es "no hay almacén".
-/// </summary>
 internal sealed class LockedCredentialStore : ICredentialStore
 {
     public const string Detail = "Secret Service: Cannot create an item in a locked collection (prueba)";

@@ -3,19 +3,18 @@ using FiscalApi.Cli.Http;
 
 namespace FiscalApi.Cli.Commands;
 
-/// <summary><c>--page</c> y <c>--page-size</c> de los listados. Los rangos (1–50 por página) los valida la API.</summary>
 public sealed class PageOptions
 {
     private readonly Option<int?> _page = new("--page")
     {
-        Description = "Número de página, desde 1 (por omisión 1).",
-        HelpName = "número"
+        Description = "Page number, from 1. Defaults to 1.",
+        HelpName = "number"
     };
 
     private readonly Option<int?> _pageSize = new("--page-size")
     {
-        Description = "Elementos por página, de 1 a 50 (por omisión 10).",
-        HelpName = "tamaño"
+        Description = "Items per page, from 1 to 50. Defaults to 10.",
+        HelpName = "size"
     };
 
     public void AddTo(Command command)

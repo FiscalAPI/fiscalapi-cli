@@ -3,10 +3,6 @@ using FiscalApi.Cli.Credentials;
 
 namespace FiscalApi.Cli.Tests.Credentials;
 
-/// <summary>
-/// El secreto de cada entrada del almacén: JSON UTF-8 con las dos llaves. Una entrada que no es de este CLI o se
-/// editó a mano es un error del almacén que pide volver a hacer login, sin repetir lo que trae.
-/// </summary>
 public sealed class StoredCredentialsFormatTests
 {
     private const string Host = "test.fiscalapi.com";
@@ -22,10 +18,6 @@ public sealed class StoredCredentialsFormatTests
         Assert.Equal(credentials, StoredCredentialsFormat.Decode(secret, Host));
     }
 
-    /// <summary>
-    /// CRED_MAX_CREDENTIAL_BLOB_SIZE de Credential Manager (5 * 512 bytes), el límite más chico de los tres almacenes.
-    /// El escape de JSON puede volver un carácter en seis bytes (<c>"</c> → <c>"</c>), así que se prueba el peor.
-    /// </summary>
     [Fact]
     public void Longest_credentials_fit_the_smallest_store_limit_even_with_json_escapes()
     {

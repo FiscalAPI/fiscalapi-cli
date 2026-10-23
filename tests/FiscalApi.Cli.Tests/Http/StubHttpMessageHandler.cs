@@ -5,26 +5,17 @@ using System.Text;
 
 namespace FiscalApi.Cli.Tests.Http;
 
-/// <summary>
-/// Simula la API: responde en orden lo que se le encola y guarda cada request recibido.
-/// Así las pruebas nunca salen a Test ni a Live.
-/// </summary>
 public sealed class StubHttpMessageHandler : HttpMessageHandler
 {
     private readonly Queue<Func<CancellationToken, Task<HttpResponseMessage>>> _responses = new();
 
     public List<HttpRequestMessage> Requests { get; } = [];
 
-    /// <summary>
-    /// El cuerpo de cada request, en el orden de <see cref="Requests"/> (<c>null</c> si no llevó). Se lee al recibirlo: el
-    /// cliente libera el request (y su contenido) en cuanto termina.
-    /// </summary>
     public List<string?> RequestBodies { get; } = [];
 
     public StubHttpMessageHandler RespondJson(HttpStatusCode status, string json, int times = 1) =>
         Respond(() => Json(status, json), times);
 
-    /// <summary>Como el 502/503 de nginx: un cuerpo que no es JSON.</summary>
     public StubHttpMessageHandler RespondHtml(HttpStatusCode status, string html, int times = 1) =>
         Respond(() => new HttpResponseMessage(status)
         {
@@ -47,7 +38,6 @@ public sealed class StubHttpMessageHandler : HttpMessageHandler
         Enqueue(times, _ => Task.FromException<HttpResponseMessage>(
             new HttpRequestException(error, $"Falla de red simulada ({error}).")));
 
-    /// <summary>Una API que no responde: el request termina solo cuando alguien cancela su token.</summary>
     public StubHttpMessageHandler NeverRespond() =>
         Enqueue(1, async cancellationToken =>
         {

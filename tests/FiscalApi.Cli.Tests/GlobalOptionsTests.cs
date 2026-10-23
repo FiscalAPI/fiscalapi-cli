@@ -2,9 +2,6 @@ using System.CommandLine;
 
 namespace FiscalApi.Cli.Tests;
 
-/// <summary>
-/// <c>--api-base</c> gana sobre <c>--live</c>, y este sobre test.
-/// </summary>
 public sealed class GlobalOptionsTests
 {
     [Fact]

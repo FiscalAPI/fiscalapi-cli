@@ -10,10 +10,6 @@ using Microsoft.Extensions.Logging;
 
 namespace FiscalApi.Cli.Tests.Listen;
 
-/// <summary>
-/// El receptor local de la persona (<c>--forward-to</c>) en Kestrel, en proceso: guarda cada request con sus bytes y
-/// headers exactos y responde lo que decide la prueba (200 por omisión).
-/// </summary>
 internal sealed class FakeReceiver : IAsyncDisposable
 {
     private readonly WebApplication _app;
@@ -34,8 +30,6 @@ internal sealed class FakeReceiver : IAsyncDisposable
 
     public IReadOnlyCollection<ReceivedRequest> Requests => _requests;
 
-    /// <param name="respond">El código de cada request; puede tardar para simular un receptor lento.</param>
-    /// <param name="certificate">Con certificado, escucha en https.</param>
     public static async Task<FakeReceiver> StartAsync(
         Func<ReceivedRequest, CancellationToken, Task<int>>? respond = null, X509Certificate2? certificate = null)
     {
@@ -67,7 +61,6 @@ internal sealed class FakeReceiver : IAsyncDisposable
     }
 }
 
-/// <summary>Lo que llegó al receptor, copiado: Kestrel recicla los headers de un request al terminarlo.</summary>
 internal sealed record ReceivedRequest(string Method, string Path, IReadOnlyDictionary<string, string> Headers, byte[] Body)
 {
     public static async Task<ReceivedRequest> ReadAsync(HttpRequest request)

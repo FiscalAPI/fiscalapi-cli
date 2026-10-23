@@ -6,14 +6,10 @@ using FiscalApi.Cli.Http;
 
 namespace FiscalApi.Cli.Tests.Http;
 
-/// <summary>
-/// El handler de producción no sigue redirecciones: así un 3xx no lleva X-API-KEY ni X-TENANT-KEY a otro host
-/// y un POST no se convierte en GET. Usa un servidor HTTP local en proceso, nunca Test ni Live.
-/// </summary>
 public sealed class RedirectTests : IDisposable
 {
     private readonly HttpListener _server = new();
-    private readonly ConcurrentQueue<string> _hits = new();
+    private readonly ConcurrentQueue<string?> _hits = new();
     private readonly Uri _baseAddress;
 
     public RedirectTests()
@@ -63,7 +59,7 @@ public sealed class RedirectTests : IDisposable
                 return;
             }
 
-            _hits.Enqueue(context.Request.Url!.AbsolutePath);
+            _hits.Enqueue(context.Request.Url?.AbsolutePath);
             context.Response.StatusCode = (int)HttpStatusCode.Found;
             context.Response.RedirectLocation = new Uri(_baseAddress, "destino").ToString();
             context.Response.Close();

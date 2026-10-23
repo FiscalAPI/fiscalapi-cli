@@ -3,11 +3,6 @@ using System.Net.Http.Headers;
 
 namespace FiscalApi.Cli.Http;
 
-/// <summary>
-/// <c>--verbose</c>: escribe cada request y su respuesta en stderr. Los headers de credenciales nunca se escriben,
-/// ni siquiera enmascarados, porque la salida suele pegarse en tickets y chats de soporte. Los cuerpos tampoco:
-/// pueden traer secretos (p. ej. el de un webhook).
-/// </summary>
 public sealed class VerboseLoggingHandler(TextWriter diagnostics) : DelegatingHandler
 {
     private static readonly HashSet<string> CredentialHeaders = new(StringComparer.OrdinalIgnoreCase)
@@ -36,13 +31,12 @@ public sealed class VerboseLoggingHandler(TextWriter diagnostics) : DelegatingHa
         }
         catch (HttpRequestException exception)
         {
-            diagnostics.WriteLine($"! {line} falló ({exception.HttpRequestError}) tras {Elapsed(startedAt)}: {exception.Message}");
+            diagnostics.WriteLine($"! {line} failed ({exception.HttpRequestError}) after {Elapsed(startedAt)}: {exception.Message}");
             throw;
         }
-        // Aquí no se distingue el timeout de HttpClient de un Ctrl+C: ambos cancelan el mismo token.
         catch (OperationCanceledException)
         {
-            diagnostics.WriteLine($"! {line} sin respuesta tras {Elapsed(startedAt)} (tiempo agotado o cancelado)");
+            diagnostics.WriteLine($"! {line} got no response after {Elapsed(startedAt)} (timed out or canceled)");
             throw;
         }
 

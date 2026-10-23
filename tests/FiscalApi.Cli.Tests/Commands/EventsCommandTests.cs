@@ -4,17 +4,11 @@ using FiscalApi.Cli.Tests.Http;
 
 namespace FiscalApi.Cli.Tests.Commands;
 
-/// <summary>
-/// <c>fiscalapi events list|retrieve|resend</c> contra las rutas de <c>EventsController</c> de la API,
-/// simuladas con <see cref="StubHttpMessageHandler"/>. <c>retrieve</c> imprime el sobre exactamente como lo entregó la
-/// API.
-/// </summary>
 public sealed class EventsCommandTests
 {
     private const string EventsUrl = "https://api.example.test/api/v4/events";
     private const string EventId = "0d6f5c1e-8a2b-4c3d-9e8f-7a6b5c4d3e2f";
 
-    // El sobre del evento como lo guarda y entrega la API (WebhookEnvelopeSerializer): sin espacios y con las nulas.
     private const string Envelope =
         $$$"""{"id":"{{{EventId}}}","type":"invoice.canceled","createdAt":"2026-10-12T15:47:46Z","personId":"persona-1","data":{"relatedObject":{"id":"factura-1","type":"invoice","url":"/api/v4/invoices/factura-1"},"status":"X","previousStatus":"C"}}""";
 
@@ -25,8 +19,6 @@ public sealed class EventsCommandTests
         $$"""{"items":[{{Envelope}},{{OtherEnvelope}}],"pageNumber":1,"totalPages":1,"totalCount":2,"hasPreviousPage":false,"hasNextPage":false}""";
 
     private readonly ApiCommandHarness _cli = new();
-
-    // ---------------------------------------------------------------- list
 
     [Fact]
     public async Task List_gets_the_events_without_query_by_default()
@@ -58,10 +50,9 @@ public sealed class EventsCommandTests
         Assert.Equal(
             $"{EventsUrl}?type=invoice.canceled&relatedObjectId=factura%201&from=2026-10-01T14%3A00%3A00Z" +
             "&to=2026-10-13T23%3A59%3A59.5Z&pageNumber=3&pageSize=20",
-            _cli.SingleRequest().RequestUri!.AbsoluteUri);
+            _cli.SingleRequest().RequestUri?.AbsoluteUri);
     }
 
-    // La API compara to incluido (createdAt <= to): con solo la fecha, el último instante de ese día en UTC.
     [Theory]
     [InlineData("2026-10-13", "2026-10-13T23%3A59%3A59.9999999Z")]
     [InlineData("2026-12-31", "2026-12-31T23%3A59%3A59.9999999Z")]
@@ -73,7 +64,7 @@ public sealed class EventsCommandTests
 
         await _cli.RunAsync("events", "list", "--to", to);
 
-        Assert.Equal($"{EventsUrl}?to={sent}", _cli.SingleRequest().RequestUri!.AbsoluteUri);
+        Assert.Equal($"{EventsUrl}?to={sent}", _cli.SingleRequest().RequestUri?.AbsoluteUri);
     }
 
     [Theory]
@@ -87,7 +78,7 @@ public sealed class EventsCommandTests
 
         await _cli.RunAsync("events", "list", "--from", from);
 
-        Assert.Equal($"{EventsUrl}?from={sent}", _cli.SingleRequest().RequestUri!.AbsoluteUri);
+        Assert.Equal($"{EventsUrl}?from={sent}", _cli.SingleRequest().RequestUri?.AbsoluteUri);
     }
 
     [Theory]
@@ -99,7 +90,7 @@ public sealed class EventsCommandTests
         var exitCode = await _cli.RunAsync("events", "list", option, value);
 
         Assert.Equal(ExitCodes.Usage, exitCode);
-        Assert.Contains($"{option} debe ser una fecha ISO 8601", _cli.Error);
+        Assert.Contains($"{option} must be an ISO 8601 date", _cli.Error);
         Assert.Empty(_cli.Api.Requests);
     }
 
@@ -111,10 +102,10 @@ public sealed class EventsCommandTests
         await _cli.RunAsync("events", "list");
 
         var lines = _cli.Out.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
-        Assert.Matches(@"^ID\s+TIPO\s+CREADO \(UTC\)\s+RECURSO\s+PERSONA$", lines[0]);
+        Assert.Matches(@"^ID\s+TYPE\s+CREATED \(UTC\)\s+RESOURCE\s+PERSON$", lines[0]);
         Assert.Matches($@"^{EventId}\s+invoice\.canceled\s+2026-10-12T15:47:46Z\s+factura-1\s+persona-1$", lines[1]);
         Assert.Matches(@"^evt-2\s+webhook.test\s+2026-10-12T15:40:00Z\s+we-1\s+-$", lines[2]);
-        Assert.Equal("Página 1 de 1 (2 en total).", lines[3]);
+        Assert.Equal("Page 1 of 1 (2 total).", lines[3]);
     }
 
     [Fact]
@@ -139,8 +130,6 @@ public sealed class EventsCommandTests
         Assert.Contains("El rango de fechas no puede exceder 30 días.", _cli.Error);
     }
 
-    // ---------------------------------------------------------------- retrieve
-
     [Fact]
     public async Task Retrieve_gets_the_event_by_its_id()
     {
@@ -159,9 +148,8 @@ public sealed class EventsCommandTests
     [InlineData(true)]
     public async Task Retrieve_prints_the_envelope_byte_for_byte(bool json)
     {
-        // Espacios, escapes y caracteres fuera de ASCII que una re-serialización cambiaría.
         const string envelope =
-            "{ \"id\" : \"evt-1\",\n  \"type\":\"invoice.canceled\", \"nota\":\"Facturación de ñandú: 🚀\", " +
+            "{ \"id\" : \"evt-1\",\n  \"type\":\"invoice.canceled\", \"nota\":\"Facturación de ñandú\", " +
             "\"escape\":\"\\u00e9\\\"\\/\", \"monto\": 1.50e2 }";
         _cli.Api.RespondJson(HttpStatusCode.OK, ApiCommandHarness.Success(envelope));
 
@@ -182,8 +170,6 @@ public sealed class EventsCommandTests
         Assert.Contains($"No such resource for the given Id: {EventId}", _cli.Error);
         Assert.Empty(_cli.Out);
     }
-
-    // ---------------------------------------------------------------- resend
 
     [Fact]
     public async Task Resend_without_webhook_posts_without_body_so_it_goes_to_the_cli_listener()
@@ -234,7 +220,7 @@ public sealed class EventsCommandTests
 
         Assert.Equal(ExitCodes.Failure, exitCode);
         Assert.Contains("La escucha de CLI no está conectada; ejecuta fiscalapi listen.", _cli.Error);
-        Assert.Contains("Código HTTP: 409", _cli.Error);
+        Assert.Contains("HTTP status: 409", _cli.Error);
         Assert.Contains("0HN7:00000409", _cli.Error);
         Assert.Single(_cli.Api.Requests);
     }

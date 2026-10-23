@@ -7,9 +7,6 @@ using FiscalApi.Cli.Tests.Updates;
 
 namespace FiscalApi.Cli.Tests;
 
-/// <summary>
-/// Códigos de salida del contrato común: 0 éxito, 1 API o red, 2 uso, 130 Ctrl+C.
-/// </summary>
 public sealed class CliApplicationTests
 {
     private readonly StringWriter _out = new();
@@ -96,10 +93,10 @@ public sealed class CliApplicationTests
     [Fact]
     public async Task Usage_exception_from_a_command_exits_2()
     {
-        var exitCode = await RunAsync(["probe"], Throwing(new UsageException("Falta --url.")));
+        var exitCode = await RunAsync(["probe"], Throwing(new UsageException("Missing --url.")));
 
         Assert.Equal(ExitCodes.Usage, exitCode);
-        Assert.Contains("Falta --url.", _error.ToString());
+        Assert.Contains("Missing --url.", _error.ToString());
     }
 
     [Fact]
@@ -120,21 +117,21 @@ public sealed class CliApplicationTests
     [Fact]
     public async Task Network_exception_from_a_command_exits_1()
     {
-        var error = new NetworkException("No se pudo conectar con https://test.fiscalapi.com/.", new HttpRequestException());
+        var error = new NetworkException("Could not connect to https://test.fiscalapi.com/.", new HttpRequestException());
 
         var exitCode = await RunAsync(["probe"], Throwing(error));
 
         Assert.Equal(ExitCodes.Failure, exitCode);
-        Assert.Contains("No se pudo conectar", _error.ToString());
+        Assert.Contains("Could not connect", _error.ToString());
     }
 
     [Fact]
     public async Task Unexpected_exception_exits_1_without_crashing()
     {
-        var exitCode = await RunAsync(["probe"], Throwing(new InvalidOperationException("estado imposible")));
+        var exitCode = await RunAsync(["probe"], Throwing(new InvalidOperationException("impossible state")));
 
         Assert.Equal(ExitCodes.Failure, exitCode);
-        Assert.Contains("estado imposible", _error.ToString());
+        Assert.Contains("impossible state", _error.ToString());
     }
 
     [Fact]
@@ -176,7 +173,7 @@ public sealed class CliApplicationTests
 
         Assert.Equal(ExitCodes.Failure, exitCode);
         Assert.Contains("JsonException", _error.ToString());
-        Assert.DoesNotContain("Respuesta inesperada", _error.ToString());
+        Assert.DoesNotContain("Unexpected response", _error.ToString());
     }
 
     [Fact]
@@ -197,7 +194,6 @@ public sealed class CliApplicationTests
         return probe;
     }
 
-    /// <summary>Un comando que hace un GET; si recibe <paramref name="cancelAfterStart"/>, simula Ctrl+C en pleno request.</summary>
     private static Command CallingApi(FiscalApiClient client, CancellationTokenSource? cancelAfterStart = null)
     {
         var probe = new Command("probe");

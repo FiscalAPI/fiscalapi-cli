@@ -3,10 +3,6 @@ using System.Runtime.Versioning;
 
 namespace FiscalApi.Cli.Credentials.MacOS;
 
-/// <summary>
-/// CoreFoundation (CFBase.h, CFString.h, CFData.h, CFDictionary.h) con <see cref="LibraryImportAttribute"/>.
-/// <c>CFIndex</c> es <c>signed long</c>: 64 bits en macOS, por eso <see cref="nint"/>.
-/// </summary>
 [SupportedOSPlatform("macos")]
 internal static unsafe partial class CoreFoundation
 {
@@ -16,7 +12,6 @@ internal static unsafe partial class CoreFoundation
 
     private static readonly nint Handle = NativeLibrary.Load(Library);
 
-    /// <summary>Retiene y libera llaves y valores como objetos CF: el diccionario no depende de nuestras referencias.</summary>
     private static readonly nint TypeDictionaryKeyCallBacks = NativeLibrary.GetExport(Handle, "kCFTypeDictionaryKeyCallBacks");
 
     private static readonly nint TypeDictionaryValueCallBacks = NativeLibrary.GetExport(Handle, "kCFTypeDictionaryValueCallBacks");
@@ -26,7 +21,6 @@ internal static unsafe partial class CoreFoundation
     public static CFHandle CreateString(string value) =>
         CFHandle.Owned(CFStringCreateWithCString(allocator: 0, value, StringEncodingUtf8));
 
-    /// <summary>CoreFoundation copia los bytes: quien llama puede borrar los suyos en cuanto vuelve.</summary>
     public static CFHandle CreateData(ReadOnlySpan<byte> bytes)
     {
         fixed (byte* pointer = bytes)
@@ -35,7 +29,6 @@ internal static unsafe partial class CoreFoundation
         }
     }
 
-    /// <summary>Los bytes viven mientras viva <paramref name="data"/>.</summary>
     public static ReadOnlySpan<byte> GetBytes(CFHandle data) =>
         new(CFDataGetBytePtr(data.DangerousGetHandle()), checked((int)CFDataGetLength(data.DangerousGetHandle())));
 
@@ -69,10 +62,6 @@ internal static unsafe partial class CoreFoundation
     internal static partial void CFRelease(nint value);
 }
 
-/// <summary>
-/// Un objeto de CoreFoundation que nos pertenece (regla "Create/Copy"): se libera una sola vez con <c>CFRelease</c>,
-/// aun si hay una excepción.
-/// </summary>
 [SupportedOSPlatform("macos")]
 internal sealed class CFHandle : SafeHandle
 {
@@ -81,9 +70,8 @@ internal sealed class CFHandle : SafeHandle
 
     public override bool IsInvalid => handle == 0;
 
-    /// <exception cref="InvalidOperationException">CoreFoundation devolvió NULL (sin memoria o sin resultado).</exception>
     public static CFHandle Owned(nint handle) =>
-        handle != 0 ? new CFHandle(handle) : throw new InvalidOperationException("CoreFoundation devolvió un objeto nulo.");
+        handle != 0 ? new CFHandle(handle) : throw new InvalidOperationException("CoreFoundation returned a null object.");
 
     protected override bool ReleaseHandle()
     {
@@ -92,7 +80,6 @@ internal sealed class CFHandle : SafeHandle
     }
 }
 
-/// <summary>Keychain Services de Security.framework (SecItem.h y SecBase.h).</summary>
 [SupportedOSPlatform("macos")]
 internal static unsafe partial class SecurityFramework
 {
@@ -117,7 +104,6 @@ internal static unsafe partial class SecurityFramework
     public static readonly nint MatchLimit = Constant("kSecMatchLimit");
     public static readonly nint MatchLimitOne = Constant("kSecMatchLimitOne");
 
-    /// <param name="result">Retenido (CF_RETURNS_RETAINED): se libera con <c>CFRelease</c>.</param>
     [LibraryImport(Library)]
     public static partial int SecItemCopyMatching(nint query, nint* result);
 
@@ -130,6 +116,5 @@ internal static unsafe partial class SecurityFramework
     [LibraryImport(Library)]
     public static partial int SecItemDelete(nint query);
 
-    // Las constantes de Security.framework son variables CFStringRef exportadas: GetExport da su dirección.
     private static nint Constant(string name) => *(nint*)NativeLibrary.GetExport(Handle, name);
 }

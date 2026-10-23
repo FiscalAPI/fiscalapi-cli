@@ -7,26 +7,20 @@ using Microsoft.Extensions.Time.Testing;
 
 namespace FiscalApi.Cli.Tests.Updates;
 
-/// <summary>
-/// Aviso de versión nueva: consulta releases/latest como mucho una vez cada 24 h, con 2 s de tope, y nunca
-/// falla ni bloquea el comando. GitHub se simula con <see cref="StubHttpMessageHandler"/>: las pruebas no salen a la red.
-/// </summary>
 public sealed class UpdateCheckTests : IDisposable
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 13, 12, 0, 0, TimeSpan.Zero);
     private static readonly TimeSpan RealTimeLimit = TimeSpan.FromSeconds(10);
 
-    private readonly string _directory = Path.Combine(Path.GetTempPath(), "fiscalapi-cli-tests", Guid.NewGuid().ToString("N"));
+    private static readonly string TestsDirectory = Path.Combine(Path.GetTempPath(), "fiscalapi-cli-tests");
+
+    private readonly string _directory = Path.Combine(TestsDirectory, Guid.NewGuid().ToString("N"));
     private readonly FakeTimeProvider _clock = new(Now);
     private readonly StubHttpMessageHandler _github = new();
     private readonly Dictionary<string, string> _environment = [];
 
     private string StatePath => Path.Combine(_directory, "update-check.json");
 
-    /// <summary>
-    /// Una consulta cortada por el tope o por Ctrl+C sigue en segundo plano hasta terminar (por diseño, nadie la espera):
-    /// puede estar escribiendo el archivo de estado mientras se borra la carpeta. Se reintenta un momento.
-    /// </summary>
     public void Dispose()
     {
         for (var attempt = 1; ; attempt++)
@@ -73,10 +67,9 @@ public sealed class UpdateCheckTests : IDisposable
 
         var request = Assert.Single(_github.Requests);
         Assert.Equal(HttpMethod.Get, request.Method);
-        Assert.Equal("https://api.github.com/repos/FiscalAPI/fiscalapi-cli/releases/latest", request.RequestUri!.ToString());
+        Assert.Equal("https://api.github.com/repos/FiscalAPI/fiscalapi-cli/releases/latest", request.RequestUri?.ToString());
         Assert.Equal("fiscalapi-cli/0.1.0", request.Headers.UserAgent.ToString());
         Assert.Contains("application/vnd.github+json", request.Headers.Accept.ToString());
-        // Las credenciales de FiscalAPI nunca viajan a GitHub.
         Assert.False(request.Headers.Contains("X-API-KEY"));
         Assert.False(request.Headers.Contains("X-TENANT-KEY"));
         Assert.Null(request.Headers.Authorization);
@@ -88,13 +81,13 @@ public sealed class UpdateCheckTests : IDisposable
         _github.RespondJson(HttpStatusCode.OK, Release("v0.2.0"));
         var notice = await StartAsync();
         var error = new StringWriter();
+        Assert.NotNull(notice);
 
-        await notice!.WriteToAsync(error);
+        await notice.WriteToAsync(error);
 
         var text = error.ToString();
-        Assert.Contains("0.2.0", text);
-        Assert.Contains("0.1.0", text);
-        Assert.Contains("https://github.com/FiscalAPI/fiscalapi-cli/releases/tag/v0.2.0", text);
+        Assert.Contains("fiscalapi 0.2.0 is available (you have 0.1.0).", text);
+        Assert.Contains("Download it from https://github.com/FiscalAPI/fiscalapi-cli/releases/tag/v0.2.0", text);
     }
 
     [Fact]
@@ -122,7 +115,6 @@ public sealed class UpdateCheckTests : IDisposable
         _github.RespondJson(HttpStatusCode.OK, Release("v0.2.0"));
         await StartAsync();
 
-        // Otro proceso: otra instancia que lee el mismo archivo de estado.
         var anotherProcess = await StartAsync(CreateCheck());
 
         Assert.Null(anotherProcess);
@@ -240,7 +232,6 @@ public sealed class UpdateCheckTests : IDisposable
 
         var check = CreateCheck().Start(Settings(), CancellationToken.None);
 
-        // Start devuelve en seguida: el comando corre mientras GitHub no contesta.
         Assert.False(check.IsCompleted);
         _clock.Advance(UpdateCheck.Timeout - TimeSpan.FromMilliseconds(1));
         Assert.False(check.IsCompleted);
@@ -305,8 +296,7 @@ public sealed class UpdateCheckTests : IDisposable
     [Fact]
     public async Task State_location_that_cannot_be_written_skips_the_check_without_failing()
     {
-        // Un archivo donde debería ir la carpeta de estado: crear la carpeta falla en cualquier SO.
-        Directory.CreateDirectory(Path.GetDirectoryName(_directory)!);
+        Directory.CreateDirectory(TestsDirectory);
         await File.WriteAllTextAsync(_directory, "no soy una carpeta");
 
         var notice = await StartAsync();
@@ -318,7 +308,6 @@ public sealed class UpdateCheckTests : IDisposable
     [Fact]
     public async Task State_file_that_cannot_be_read_skips_the_check_without_failing()
     {
-        // Una carpeta en lugar del archivo: leerlo falla (acceso denegado o "es un directorio") en cualquier SO.
         Directory.CreateDirectory(StatePath);
 
         var notice = await StartAsync();
@@ -364,7 +353,6 @@ public sealed class UpdateCheckTests : IDisposable
         Assert.Equal(
             Path.Combine("/home/ana", ".local", "state", "fiscalapi-cli"),
             UpdateCheckStateFile.LinuxStateDirectory(name => name == "HOME" ? "/home/ana" : null));
-        // La especificación XDG pide ignorar una ruta relativa.
         Assert.Equal(
             Path.Combine("/home/ana", ".local", "state", "fiscalapi-cli"),
             UpdateCheckStateFile.LinuxStateDirectory(name => name == "XDG_STATE_HOME" ? "relativa" : "/home/ana"));
@@ -379,6 +367,22 @@ public sealed class UpdateCheckTests : IDisposable
         Assert.NotNull(stateFile);
         Assert.Equal("update-check.json", Path.GetFileName(stateFile.Path));
         Assert.Equal("fiscalapi-cli", Path.GetFileName(Path.GetDirectoryName(stateFile.Path)));
+    }
+
+    [Theory]
+    [InlineData("update-check.json")]
+    [InlineData("")]
+    public void State_file_without_a_parent_directory_is_rejected(string path)
+    {
+        Assert.Throws<ArgumentException>("path", () => new UpdateCheckStateFile(path));
+    }
+
+    [Fact]
+    public void State_file_at_the_file_system_root_is_rejected()
+    {
+        var root = Path.DirectorySeparatorChar.ToString();
+
+        Assert.Throws<ArgumentException>("path", () => new UpdateCheckStateFile(root));
     }
 
     private string? Environment(string name) => _environment.GetValueOrDefault(name);

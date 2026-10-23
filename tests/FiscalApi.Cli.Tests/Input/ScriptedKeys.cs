@@ -1,14 +1,9 @@
 namespace FiscalApi.Cli.Tests.Input;
 
-/// <summary>
-/// Teclas escritas por una persona simulada, para <c>ConsoleSecretReader</c>. <c>\r</c> es Enter y <c>\b</c> es
-/// Backspace. Cuando se acaban, no hay tecla disponible (devuelve <c>null</c>), como una terminal en espera.
-/// </summary>
 internal sealed class ScriptedKeys(string typed)
 {
     private readonly Queue<char> _pending = new(typed);
 
-    /// <summary>Cuántas teclas se leyeron: 0 demuestra que no se le pidió nada a la persona.</summary>
     public int Read { get; private set; }
 
     public ConsoleKeyInfo? TryRead()

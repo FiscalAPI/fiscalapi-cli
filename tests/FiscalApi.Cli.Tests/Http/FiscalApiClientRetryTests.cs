@@ -5,10 +5,6 @@ using FiscalApi.Cli.Http;
 
 namespace FiscalApi.Cli.Tests.Http;
 
-/// <summary>
-/// Contrato común del CLI: solo un GET se reintenta y solo ante errores transitorios.
-/// Las esperas se miden con un reloj falso (<see cref="SteppedTimeProvider"/>), nunca durmiendo.
-/// </summary>
 public sealed class FiscalApiClientRetryTests
 {
     private const string Success = """{"succeeded":true,"message":"","details":"","data":{"name":"ok"}}""";
@@ -91,7 +87,7 @@ public sealed class FiscalApiClientRetryTests
 
         var error = await Assert.ThrowsAsync<NetworkException>(() => GetAsync(client));
 
-        Assert.Contains("no respondió", error.Message);
+        Assert.Contains("did not respond", error.Message);
         Assert.Single(handler.Requests);
     }
 
@@ -143,7 +139,6 @@ public sealed class FiscalApiClientRetryTests
         var pending = GetAsync(TimedClient(handler));
         await _time.WaitForDelayAsync();
 
-        // 7 s es más que cualquier backoff de esta política (máximo 1 s en el primer reintento).
         _time.Advance(TimeSpan.FromSeconds(7) - TimeSpan.FromMilliseconds(1));
         Assert.Single(handler.Requests);
         _time.Advance(TimeSpan.FromMilliseconds(1));
@@ -175,7 +170,6 @@ public sealed class FiscalApiClientRetryTests
             .RespondWithRetryAfter(HttpStatusCode.TooManyRequests, new RetryConditionHeaderValue(TimeSpan.FromMinutes(5)))
             .RespondJson(HttpStatusCode.OK, Success);
 
-        // Sin avanzar el reloj: si esperara, la operación no terminaría.
         var error = await Assert.ThrowsAsync<ApiException>(() => Finished(GetAsync(TimedClient(handler))));
 
         Assert.Equal(HttpStatusCode.TooManyRequests, error.StatusCode);
@@ -191,13 +185,11 @@ public sealed class FiscalApiClientRetryTests
 
         var pending = GetAsync(TimedClient(handler));
 
-        // Primer reintento: entre 0.5 s y 1 s (base de 1 s).
         await _time.WaitForDelayAsync();
         _time.Advance(TimeSpan.FromMilliseconds(499));
         Assert.Single(handler.Requests);
         _time.Advance(TimeSpan.FromMilliseconds(501));
 
-        // Segundo reintento: entre 1 s y 2 s.
         await _time.WaitForDelayAsync();
         Assert.Equal(2, handler.Requests.Count);
         _time.Advance(TimeSpan.FromMilliseconds(999));
@@ -236,7 +228,6 @@ public sealed class FiscalApiClientRetryTests
         Assert.Single(handler.Requests);
     }
 
-    /// <summary>Una espera de más hace fallar la prueba en vez de colgar la suite.</summary>
     private static Task<T> Finished<T>(Task<T> task) => task.WaitAsync(TimeSpan.FromSeconds(5));
 
     private FiscalApiClient TimedClient(StubHttpMessageHandler handler) => FiscalApiClientBuilder.Create(

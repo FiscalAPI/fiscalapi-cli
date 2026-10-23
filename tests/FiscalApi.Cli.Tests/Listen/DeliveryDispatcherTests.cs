@@ -2,11 +2,6 @@ using FiscalApi.Cli.Listen;
 
 namespace FiscalApi.Cli.Tests.Listen;
 
-/// <summary>
-/// Los reenvíos de <c>listen</c> corren con concurrencia acotada y ordenados por evento: las entregas de eventos distintos
-/// van en paralelo, las del mismo evento en el orden en que llegaron, y el long-polling solo espera cuando todo el cupo
-/// está ocupado.
-/// </summary>
 public sealed class DeliveryDispatcherTests
 {
     private static readonly TimeSpan WaitLimit = TimeSpan.FromSeconds(5);
@@ -69,7 +64,6 @@ public sealed class DeliveryDispatcherTests
             dispatcher.Enqueue($"evt_{i}", works[i].RunAsync);
         }
 
-        // Cuáles dos toman el cupo primero no está definido; lo que importa es que sean dos.
         await FakeListenerApi.WaitUntilAsync(() => works.Count(work => work.Started.IsCompleted) == 2, "No corrieron dos.");
         await Task.Delay(100);
         Assert.Equal(2, works.Count(work => work.Started.IsCompleted));
@@ -179,7 +173,6 @@ public sealed class DeliveryDispatcherTests
         throw new TimeoutException("El despachador nunca informó la falla.");
     }
 
-    /// <summary>Trabajo que avisa cuando empieza y no termina hasta que la prueba lo suelta.</summary>
     private sealed class BlockingWork
     {
         private readonly TaskCompletionSource _started = new(TaskCreationOptions.RunContinuationsAsynchronously);

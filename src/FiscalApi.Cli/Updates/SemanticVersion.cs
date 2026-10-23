@@ -4,10 +4,6 @@ using System.Text.RegularExpressions;
 
 namespace FiscalApi.Cli.Updates;
 
-/// <summary>
-/// Versión semántica 2.0.0 (semver.org): la del CLI y la de los tags <c>v*</c> de sus releases. Se compara por
-/// precedencia, no como texto: <c>0.10.0</c> es más nueva que <c>0.9.0</c> y <c>1.0.0-rc.1</c> es anterior a <c>1.0.0</c>.
-/// </summary>
 public sealed partial class SemanticVersion : IComparable<SemanticVersion>
 {
     private readonly int _major;
@@ -27,10 +23,6 @@ public sealed partial class SemanticVersion : IComparable<SemanticVersion>
 
     public bool IsPrerelease => _prerelease.Length > 0;
 
-    /// <summary>
-    /// Acepta una <c>v</c> inicial, como en los tags del repo. Rechaza lo demás que no sea semver estricto: espacios,
-    /// ceros a la izquierda, dígitos que no son ASCII o números que no caben en <see cref="int"/>.
-    /// </summary>
     public static bool TryParse(string? text, [NotNullWhen(true)] out SemanticVersion? version)
     {
         version = null;
@@ -54,7 +46,6 @@ public sealed partial class SemanticVersion : IComparable<SemanticVersion>
         return true;
     }
 
-    /// <summary>Precedencia de semver §11: los metadatos de build (<c>+…</c>) no cuentan.</summary>
     public int CompareTo(SemanticVersion? other)
     {
         if (other is null)
@@ -66,11 +57,8 @@ public sealed partial class SemanticVersion : IComparable<SemanticVersion>
         return core != 0 ? core : ComparePrerelease(_prerelease, other._prerelease);
     }
 
-    /// <summary>La versión como se escribió, sin la <c>v</c> del tag.</summary>
     public override string ToString() => _text;
 
-    // Sin prerelease gana: 1.0.0-rc.1 < 1.0.0. Con prerelease se comparan identificador por identificador y, si todos
-    // coinciden, el conjunto más corto es menor.
     private static int ComparePrerelease(string[] left, string[] right)
     {
         if (left.Length == 0 || right.Length == 0)
@@ -90,9 +78,6 @@ public sealed partial class SemanticVersion : IComparable<SemanticVersion>
         return left.Length.CompareTo(right.Length);
     }
 
-    // Numérico contra numérico por valor; numérico siempre antes que alfanumérico; alfanuméricos en orden ASCII.
-    // Los numéricos no traen ceros a la izquierda (lo exige el patrón): comparar la longitud y luego el texto da su
-    // valor sin desbordar, aunque tengan más dígitos de los que caben en un long.
     private static int CompareIdentifier(string left, string right)
     {
         var leftIsNumeric = IsNumeric(left);
@@ -116,8 +101,6 @@ public sealed partial class SemanticVersion : IComparable<SemanticVersion>
     private static bool TryParseNumber(string text, out int value) =>
         int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out value);
 
-    // La expresión regular oficial de semver.org con [0-9] en lugar de \d (que en .NET acepta dígitos Unicode) y \z en
-    // lugar de $ (que también acepta un salto de línea final).
     [GeneratedRegex(
         @"^(?<major>0|[1-9][0-9]*)\.(?<minor>0|[1-9][0-9]*)\.(?<patch>0|[1-9][0-9]*)" +
         @"(?:-(?<prerelease>(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?" +

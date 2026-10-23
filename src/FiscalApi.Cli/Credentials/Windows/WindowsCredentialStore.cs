@@ -5,31 +5,24 @@ using FiscalApi.Cli.Errors;
 
 namespace FiscalApi.Cli.Credentials.Windows;
 
-/// <summary>
-/// Windows Credential Manager: una credencial genérica (<c>CRED_TYPE_GENERIC</c>) por host, con nombre
-/// <c>{servicio}:{host}</c> (p. ej. <c>fiscalapi-cli:test.fiscalapi.com</c>). Se ve y se borra también desde
-/// "Administrador de credenciales" o con <c>cmdkey /delete:fiscalapi-cli:test.fiscalapi.com</c>.
-/// </summary>
 [SupportedOSPlatform("windows")]
 internal sealed unsafe class WindowsCredentialStore(string service) : ICredentialStore
 {
+    private const string StoreName = "Windows Credential Manager";
+
     private const uint CredTypeGeneric = 1;
 
-    // Solo en este equipo y para esta persona. CRED_PERSIST_ENTERPRISE viajaría con un perfil móvil a otros equipos.
     private const uint CredPersistLocalMachine = 2;
 
     private const int ErrorNotFound = 1168;
 
-    // Sesiones de red o de servicio sin conjunto de credenciales: no hay almacén que usar.
     private const int ErrorNoSuchLogonSession = 1312;
 
     private delegate T SecretDecoder<out T>(ReadOnlySpan<byte> secret, string host);
 
-    // Credential Manager no tiene una consulta sin secreto: se lee la entrada y se borra sin decodificarla, así una
-    // entrada ilegible no impide que login la reemplace.
-    public void EnsureAvailable(string host) => ReadSecret(host, "consultar", static (_, _) => true);
+    public void EnsureAvailable(string host) => ReadSecret(host, "check", static (_, _) => true);
 
-    public ApiCredentials? Read(string host) => ReadSecret<ApiCredentials>(host, "leer", StoredCredentialsFormat.Decode);
+    public ApiCredentials? Read(string host) => ReadSecret<ApiCredentials>(host, "read", StoredCredentialsFormat.Decode);
 
     public void Save(string host, ApiCredentials credentials)
     {
@@ -48,10 +41,9 @@ internal sealed unsafe class WindowsCredentialStore(string service) : ICredentia
                     Persist = CredPersistLocalMachine
                 };
 
-                // CredWriteW crea la entrada o reemplaza la que tenga el mismo TargetName y Type.
                 if (!AdvApi32.CredWriteW(&credential, flags: 0))
                 {
-                    throw Failure(Marshal.GetLastPInvokeError(), "guardar");
+                    throw Failure(Marshal.GetLastPInvokeError(), "save");
                 }
             }
         }
@@ -69,10 +61,9 @@ internal sealed unsafe class WindowsCredentialStore(string service) : ICredentia
         }
 
         var error = Marshal.GetLastPInvokeError();
-        return error == ErrorNotFound ? false : throw Failure(error, "borrar");
+        return error == ErrorNotFound ? false : throw Failure(error, "delete");
     }
 
-    /// <returns>Lo que devuelve <paramref name="decode"/>, o el valor por omisión si no hay entrada.</returns>
     private T? ReadSecret<T>(string host, string operation, SecretDecoder<T> decode)
     {
         AdvApi32.CREDENTIALW* credential;
@@ -84,7 +75,6 @@ internal sealed unsafe class WindowsCredentialStore(string service) : ICredentia
 
         try
         {
-            // El bloque es nuestro hasta CredFree: se borra el secreto antes de devolverlo al sistema.
             var secret = new Span<byte>(credential->CredentialBlob, checked((int)credential->CredentialBlobSize));
             try
             {
@@ -104,6 +94,6 @@ internal sealed unsafe class WindowsCredentialStore(string service) : ICredentia
     private string TargetName(string host) => $"{service}:{host}";
 
     private static CliException Failure(int error, string operation) => error == ErrorNoSuchLogonSession
-        ? new CredentialStoreUnavailableException($"Credential Manager no tiene credenciales para esta sesión (Win32 {error}).")
-        : CredentialStoreException.Failed(operation, $"Credential Manager, Win32 {error}");
+        ? new CredentialStoreUnavailableException($"{StoreName}: not available in this logon session (Win32 error {error}).")
+        : CredentialStoreException.Failed(operation, $"{StoreName}: Win32 error {error}");
 }

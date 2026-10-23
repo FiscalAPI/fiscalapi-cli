@@ -4,10 +4,6 @@ using System.Text;
 
 namespace FiscalApi.Cli.Tests.Listen;
 
-/// <summary>
-/// Un receptor HTTP/1.1 a nivel de socket que responde una línea de estado fija, incluso una que Kestrel no permitiría
-/// (p. ej. <c>HTTP/1.1 700</c>). Atiende cada conexión: lee los headers y el cuerpo por Content-Length o chunked.
-/// </summary>
 internal sealed class RawHttpReceiver : IDisposable
 {
     private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
@@ -57,7 +53,6 @@ internal sealed class RawHttpReceiver : IDisposable
         }
     }
 
-    // Basta con consumir el request completo: el contenido no importa a estas pruebas.
     private static async Task ReadRequestAsync(NetworkStream stream)
     {
         var received = new List<byte>();

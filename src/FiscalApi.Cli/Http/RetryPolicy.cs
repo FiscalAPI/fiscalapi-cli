@@ -1,10 +1,5 @@
 namespace FiscalApi.Cli.Http;
 
-/// <summary>
-/// Reintentos con backoff exponencial y jitter, solo ante errores transitorios: conexión fallida o cortada,
-/// 408, 429 y 5xx. Un 4xx nunca se reintenta, y un timeout tampoco: el plazo que ve la persona es el del
-/// mensaje. Quien la usa decide qué requests son seguros de repetir (solo GET).
-/// </summary>
 public sealed class RetryPolicy
 {
     private readonly ExponentialBackoff _backoff;
@@ -18,13 +13,11 @@ public sealed class RetryPolicy
         _timeProvider = timeProvider;
     }
 
-    /// <summary>3 intentos, a partir de 0.5 s, sin esperar más de 10 s entre intentos: es una herramienta interactiva.</summary>
     public static RetryPolicy Default { get; } =
         new(maxAttempts: 3, baseDelay: TimeSpan.FromMilliseconds(500), maxDelay: TimeSpan.FromSeconds(10), TimeProvider.System);
 
     public int MaxAttempts { get; }
 
-    /// <param name="createRequest">Fábrica: un <see cref="HttpRequestMessage"/> no puede enviarse dos veces.</param>
     public async Task<HttpResponseMessage> SendAsync(
         HttpClient httpClient, Func<HttpRequestMessage> createRequest, CancellationToken cancellationToken)
     {
@@ -52,15 +45,9 @@ public sealed class RetryPolicy
         }
     }
 
-    // Solo fallas que otro intento puede resolver. Un error de TLS o de DNS (casi siempre un --api-base mal
-    // escrito) se repetiría igual, y solo retrasaría el mensaje.
     private static bool IsTransient(HttpRequestError error) =>
         error is HttpRequestError.ConnectionError or HttpRequestError.ResponseEnded;
 
-    /// <summary>
-    /// Respeta <c>Retry-After</c> cuando viene. Si pide esperar más que el máximo, no se reintenta y el error
-    /// llega a la persona en lugar de dejar la terminal colgada.
-    /// </summary>
     private TimeSpan? DelayBeforeRetry(int attempt, HttpResponseMessage response)
     {
         var delay = RetryAfter(response) ?? _backoff.Delay(attempt);
