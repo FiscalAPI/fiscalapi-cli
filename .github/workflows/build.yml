@@ -5,33 +5,27 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read      # Required for actions/checkout
+  contents: read
 
-# Un push nuevo al mismo PR cancela la corrida anterior: solo importa el último commit.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
-    # Runner hospedado por GitHub: el CLI no depende de Docker ni del runner self-hosted de fapi-back.
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          # Sin el token en .git/config: ningún paso posterior lo necesita y así no queda al alcance de otro proceso.
           persist-credentials: false
 
-      # El SDK sale de global.json, el mismo que se usa en local.
       - name: Set up .NET
-        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
         with:
           global-json-file: global.json
 
-      # Prerrequisitos de Native AOT en Linux (el linker clang y zlib) y un Secret Service de prueba para las
-      # pruebas del almacén de credenciales (libsecret, gnome-keyring y D-Bus con dbus-send).
       - name: Install Native AOT and Secret Service prerequisites
         run: |
           sudo apt-get update
@@ -43,8 +37,6 @@ jobs:
       - name: Build
         run: dotnet build FiscalApi.Cli.slnx -c Release --no-restore
 
-      # gnome-keyring en una sesión de D-Bus propia: así corren contra libsecret las pruebas de
-      # CredentialStoreTests, que sin FISCALAPI_CLI_SECRET_SERVICE_TESTS se omiten en Linux.
       - name: Test
         env:
           FISCALAPI_CLI_SECRET_SERVICE_TESTS: "1"
@@ -52,7 +44,6 @@ jobs:
           dbus-run-session -- bash .github/scripts/with-test-secret-service.sh
           dotnet test FiscalApi.Cli.slnx -c Release --no-build
 
-      # TreatWarningsAsErrors convierte cualquier advertencia IL de trimming/AOT en un error que rompe este paso.
       - name: Publish Native AOT (linux-x64)
         run: dotnet publish src/FiscalApi.Cli -r linux-x64 -c Release -o artifacts/linux-x64
 
