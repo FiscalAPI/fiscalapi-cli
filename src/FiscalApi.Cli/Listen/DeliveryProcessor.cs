@@ -3,11 +3,6 @@ using FiscalApi.Cli.Errors;
 
 namespace FiscalApi.Cli.Listen;
 
-/// <summary>
-/// El trabajo de una entrega: reenviarla (o solo mostrarla), escribir su línea y acusarla. Todo lo que tiene resultado se
-/// acusa, también lo que el receptor no pudo recibir: una entrega sin acuse queda abierta hasta que la API la cierra al
-/// vencer su lease, sin reintentos.
-/// </summary>
 public sealed class DeliveryProcessor(
     IDeliveryTarget target,
     ListenerApi api,
@@ -15,12 +10,8 @@ public sealed class DeliveryProcessor(
     ListenTimings timings,
     TimeProvider timeProvider)
 {
-    /// <param name="claimed">La entrega, su sesión y el plazo de su acuse.</param>
-    /// <param name="cancellationToken">Ctrl+C o el fin de la escucha: cancela el reenvío en curso.</param>
     public async Task ProcessAsync(ClaimedDelivery claimed, CancellationToken cancellationToken)
     {
-        // Con el lease vencido la API ya la cerró por AckTimeout: reenviarla tarde no se registraría y su firma podría
-        // salir de la tolerancia de 5 min del receptor.
         if (timeProvider.GetUtcNow() >= claimed.AckDeadline)
         {
             output.WriteExpired(claimed.Delivery);
@@ -40,10 +31,6 @@ public sealed class DeliveryProcessor(
         }
     }
 
-    /// <summary>
-    /// Un acuse que falla por la red o con un 5xx se reintenta con backoff mientras la API lo siga esperando; repetirlo es
-    /// seguro, porque uno que ya quedó registrado responde 409. Cualquier otro rechazo se informa y la escucha sigue.
-    /// </summary>
     private async Task AcknowledgeAsync(ClaimedDelivery claimed, CliDeliveryAck ack, CancellationToken cancellationToken)
     {
         var deliveryId = claimed.Delivery.DeliveryId;
@@ -58,8 +45,6 @@ public sealed class DeliveryProcessor(
             {
                 await Task.Delay(retryIn, timeProvider, cancellationToken).ConfigureAwait(false);
             }
-            // 409: el acuse llegó tarde (la API ya cerró la entrega) o es de una sesión anterior. No hay nada que la persona
-            // pueda corregir, así que solo se informa con --verbose.
             catch (ApiException notAwaiting) when (notAwaiting.StatusCode == HttpStatusCode.Conflict)
             {
                 output.WriteAckNotRecorded(deliveryId, notAwaiting, verboseOnly: true);
@@ -73,10 +58,6 @@ public sealed class DeliveryProcessor(
         }
     }
 
-    /// <summary>
-    /// Ctrl+C con el resultado ya en la mano: un solo intento, con un plazo propio y corto, para que la entrega no quede
-    /// como AckTimeout. Si tampoco llega, la API la cierra así; la persona ya pidió salir.
-    /// </summary>
     private async Task AcknowledgeOnShutdownAsync(ClaimedDelivery claimed, CliDeliveryAck ack)
     {
         using var deadline = new CancellationTokenSource(timings.ShutdownAckTimeout, timeProvider);
@@ -90,11 +71,9 @@ public sealed class DeliveryProcessor(
         }
         catch (OperationCanceledException) when (deadline.IsCancellationRequested)
         {
-            // Sin respuesta en el plazo: la API la cierra por AckTimeout.
         }
     }
 
-    // Solo si el reintento sale antes de que venza el lease: después la API responde 409 de todos modos.
     private TimeSpan? RetryIn(int attempt, DateTimeOffset ackDeadline)
     {
         var retryIn = timings.Reconnect.Delay(attempt);

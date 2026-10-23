@@ -2,10 +2,6 @@ using Microsoft.Extensions.Time.Testing;
 
 namespace FiscalApi.Cli.Tests.Http;
 
-/// <summary>
-/// <see cref="FakeTimeProvider"/> que avisa cuando alguien crea un timer (cada <c>Task.Delay</c> crea uno).
-/// Así la prueba avanza el reloj solo cuando la espera ya existe: sin carreras con el hilo que hace el request.
-/// </summary>
 internal sealed class SteppedTimeProvider : TimeProvider
 {
     private static readonly TimeSpan WaitLimit = TimeSpan.FromSeconds(5);
@@ -26,10 +22,6 @@ internal sealed class SteppedTimeProvider : TimeProvider
         return timer;
     }
 
-    /// <summary>
-    /// Avanza sin contexto de sincronización: así lo que libera el timer (el reintento) corre en línea dentro
-    /// de esta llamada y la siguiente aserción ve su efecto. Con el contexto de xUnit iría a otro hilo, tarde.
-    /// </summary>
     public void Advance(TimeSpan delta)
     {
         var context = SynchronizationContext.Current;
@@ -44,7 +36,6 @@ internal sealed class SteppedTimeProvider : TimeProvider
         }
     }
 
-    /// <summary>Espera (en tiempo real, con límite) a que la operación empiece a esperar en este reloj.</summary>
     public async Task WaitForDelayAsync()
     {
         Assert.True(await _timersCreated.WaitAsync(WaitLimit), "La operación nunca empezó a esperar.");

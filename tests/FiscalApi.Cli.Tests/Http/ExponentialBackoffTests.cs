@@ -2,10 +2,6 @@ using FiscalApi.Cli.Http;
 
 namespace FiscalApi.Cli.Tests.Http;
 
-/// <summary>
-/// Backoff exponencial con "equal jitter": la mitad de la espera es fija y la otra aleatoria, y nunca pasa del tope. Lo
-/// usan los reintentos de GET y la reconexión de <c>listen</c> (tope de 30 s).
-/// </summary>
 public sealed class ExponentialBackoffTests
 {
     private static readonly ExponentialBackoff Backoff = new(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(30));

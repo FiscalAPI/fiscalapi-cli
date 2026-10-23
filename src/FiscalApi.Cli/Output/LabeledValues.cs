@@ -1,9 +1,5 @@
 namespace FiscalApi.Cli.Output;
 
-/// <summary>
-/// El detalle de un recurso: una línea por dato, con las etiquetas alineadas. Los datos sin valor no se muestran: lo que
-/// no aplica (p. ej. el motivo de un webhook habilitado) solo estorbaría.
-/// </summary>
 public static class LabeledValues
 {
     private const string Separator = "  ";

@@ -10,10 +10,6 @@ using FiscalApi.Cli.Tests.Updates;
 
 namespace FiscalApi.Cli.Tests.Commands;
 
-/// <summary>
-/// <c>fiscalapi login</c> lee la API key y la tenant key (por stdin redirigido o tecla por tecla), las valida con
-/// <c>GET /api/v4/me/features</c> y las guarda por host. La API se simula con <see cref="StubHttpMessageHandler"/>.
-/// </summary>
 public sealed class LoginCommandTests
 {
     private const string ApiKey = "sk_test_clave-de-login";
@@ -33,7 +29,7 @@ public sealed class LoginCommandTests
         var exitCode = await RunAsync(handler, $"{ApiKey}\n{TenantKey}\n");
 
         Assert.Equal(ExitCodes.Success, exitCode);
-        Assert.Contains($"Listo. Credenciales guardadas para {Host}.", _error.ToString());
+        Assert.Contains($"Done. Credentials saved for {Host}.", _error.ToString());
         Assert.Equal(ApiCredentials.Create(ApiKey, TenantKey), _store.Read(Host));
         Assert.DoesNotContain("Webhooks.Manage", _error.ToString());
     }
@@ -61,7 +57,7 @@ public sealed class LoginCommandTests
         var exitCode = await RunAsync(handler, $"{ApiKey}\n{TenantKey}\n");
 
         Assert.Equal(ExitCodes.Failure, exitCode);
-        Assert.Contains($"Las credenciales no son válidas para {Host}.", _error.ToString());
+        Assert.Contains($"Invalid credentials for {Host}.", _error.ToString());
         Assert.Empty(_store.Entries);
     }
 
@@ -87,9 +83,9 @@ public sealed class LoginCommandTests
 
         Assert.Equal(ExitCodes.Success, exitCode);
         Assert.Contains(
-            "Esta API key no tiene el permiso Webhooks.Manage; listen, trigger y webhooks responderán 403.",
+            "This API key lacks the Webhooks.Manage permission. listen, trigger and webhooks will return 403.",
             _error.ToString());
-        Assert.Contains($"Listo. Credenciales guardadas para {Host}.", _error.ToString());
+        Assert.Contains($"Done. Credentials saved for {Host}.", _error.ToString());
         Assert.Equal(ApiCredentials.Create(ApiKey, TenantKey), _store.Read(Host));
     }
 
@@ -103,7 +99,7 @@ public sealed class LoginCommandTests
 
         Assert.Equal(ExitCodes.Usage, exitCode);
         Assert.Contains(
-            "No hay un almacén de credenciales disponible en este sistema. Define FISCALAPI_API_KEY y FISCALAPI_TENANT_KEY.",
+            "No credential store is available. Set FISCALAPI_API_KEY and FISCALAPI_TENANT_KEY.",
             _error.ToString());
         Assert.DoesNotContain("API key: ", _error.ToString());
         Assert.Equal(0, keys.Read);
@@ -119,7 +115,7 @@ public sealed class LoginCommandTests
         var exitCode = await RunAsync(handler, InteractiveReader(keys), new LockedCredentialStore());
 
         Assert.Equal(ExitCodes.Failure, exitCode);
-        Assert.Contains("El almacén de credenciales del sistema existe, pero está bloqueado o no respondió.", _error.ToString());
+        Assert.Contains("The credential store is locked or not responding. Unlock it and try again.", _error.ToString());
         Assert.Contains(LockedCredentialStore.Detail, _error.ToString());
         Assert.Equal(0, keys.Read);
         Assert.Empty(handler.Requests);
@@ -135,7 +131,7 @@ public sealed class LoginCommandTests
         var exitCode = await RunAsync(handler, InteractiveReader(new ScriptedKeys(typed + $"{TenantKey}\r")));
 
         Assert.Equal(ExitCodes.Usage, exitCode);
-        Assert.Contains("La API key", _error.ToString());
+        Assert.Contains("API key is empty, too long, or has invalid characters.", _error.ToString());
         Assert.Contains("API key: ", _error.ToString());
         Assert.DoesNotContain("Tenant key: ", _error.ToString());
         Assert.Empty(handler.Requests);
@@ -236,7 +232,7 @@ public sealed class LoginCommandTests
         await RunAsync(handler, $"{ApiKey}\n{TenantKey}\n", apiBase: "http://localhost:5000");
 
         Assert.Equal(["localhost:5000"], _store.Entries.Keys);
-        Assert.Contains("Listo. Credenciales guardadas para localhost:5000.", _error.ToString());
+        Assert.Contains("Done. Credentials saved for localhost:5000.", _error.ToString());
     }
 
     private ConsoleSecretReader InteractiveReader(ScriptedKeys keys) => new(_error, keys.TryRead);
@@ -262,7 +258,6 @@ public sealed class LoginCommandTests
         var globalOptions = new GlobalOptions();
         var console = new CliConsole(_out, _error);
         var credentialStore = store ?? _store;
-        // Las variables de entorno no intervienen en login: la persona da las credenciales que se validan y guardan.
         var apiClients = new FiscalApiClientFactory(
             handler, new CredentialResolver(credentialStore, _ => null), console.Error, FiscalApiClientBuilder.NoDelayRetryPolicy);
         var login = new LoginCommand(globalOptions, apiClients, credentialStore, input, console);

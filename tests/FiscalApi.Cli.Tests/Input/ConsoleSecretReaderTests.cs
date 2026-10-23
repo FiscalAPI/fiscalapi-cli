@@ -2,7 +2,6 @@ using FiscalApi.Cli.Input;
 
 namespace FiscalApi.Cli.Tests.Input;
 
-/// <summary>Entrada interactiva sin eco: el secreto nunca se escribe en la terminal.</summary>
 public sealed class ConsoleSecretReaderTests
 {
     private readonly StringWriter _prompts = new();

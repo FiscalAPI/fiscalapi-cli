@@ -2,11 +2,6 @@ using FiscalApi.Cli.Credentials;
 
 namespace FiscalApi.Cli.Tests.Credentials;
 
-/// <summary>
-/// Ida y vuelta contra el almacén real del SO local (Credential Manager, llavero de macOS o Secret Service).
-/// Usa un servicio de prueba propio y hosts únicos por prueba, y borra lo que escribe: nunca toca las entradas
-/// de producción (<see cref="CredentialStores.ProductionService"/>).
-/// </summary>
 public sealed class CredentialStoreTests : IDisposable
 {
     private const string TestService = "fiscalapi-cli-test";
@@ -71,7 +66,6 @@ public sealed class CredentialStoreTests : IDisposable
         _store.EnsureAvailable(_host);
     }
 
-    // Cada borrado por separado: si el primero falla, el segundo igual limpia su entrada.
     public void Dispose()
     {
         try

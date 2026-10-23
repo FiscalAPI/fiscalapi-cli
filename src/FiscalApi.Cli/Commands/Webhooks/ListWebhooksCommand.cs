@@ -4,14 +4,13 @@ using FiscalApi.Cli.Webhooks;
 
 namespace FiscalApi.Cli.Commands.Webhooks;
 
-/// <summary><c>fiscalapi webhooks list [--page n] [--page-size n]</c>: <c>GET /api/v4/webhooks</c>.</summary>
 public sealed class ListWebhooksCommand : Command
 {
     private readonly PageOptions _page = new();
     private readonly ApiCommandContext _context;
 
     public ListWebhooksCommand(ApiCommandContext context)
-        : base("list", "Lista los webhooks del tenant, sin su secreto.")
+        : base("list", "List the tenant's webhooks, without their signing secrets.")
     {
         _context = context;
         _page.AddTo(this);

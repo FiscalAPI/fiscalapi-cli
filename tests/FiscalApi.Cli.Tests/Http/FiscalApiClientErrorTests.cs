@@ -4,9 +4,6 @@ using FiscalApi.Cli.Errors;
 
 namespace FiscalApi.Cli.Tests.Http;
 
-/// <summary>
-/// Traducción del envelope <c>ApiResponse</c> de fapi-back a <see cref="ApiException"/>.
-/// </summary>
 public sealed class FiscalApiClientErrorTests
 {
     private static readonly int AllAttempts = FiscalApiClientBuilder.NoDelayRetryPolicy.MaxAttempts;
@@ -37,7 +34,6 @@ public sealed class FiscalApiClientErrorTests
         Assert.Equal("0HN7:00000001", error.TraceIdentifier);
         Assert.Contains("fiscalapi login", error.Hint);
         Assert.Contains("FISCALAPI_API_KEY", error.Hint);
-        // El back también responde 401 cuando falta X-TENANT-KEY.
         Assert.Contains("FISCALAPI_TENANT_KEY", error.Hint);
     }
 
@@ -84,7 +80,6 @@ public sealed class FiscalApiClientErrorTests
     [Fact]
     public async Task Server_error_shows_the_trace_identifier_for_support()
     {
-        // Un 500 en un GET se reintenta: cada intento recibe la misma respuesta.
         var handler = new StubHttpMessageHandler()
             .RespondJson(HttpStatusCode.InternalServerError,
                 """{"succeeded":false,"message":"Error interno","details":"NullReferenceException","traceIdentifier":"0HN7:0000002A"}""",
@@ -120,7 +115,7 @@ public sealed class FiscalApiClientErrorTests
         var error = await Assert.ThrowsAsync<ApiException>(() => GetAsync(handler));
 
         Assert.Equal(HttpStatusCode.BadGateway, error.StatusCode);
-        Assert.Equal("Respuesta inesperada (502).", error.Message);
+        Assert.Equal("Unexpected response (502).", error.Message);
         Assert.Null(error.TraceIdentifier);
     }
 
@@ -144,7 +139,7 @@ public sealed class FiscalApiClientErrorTests
 
         var error = await Assert.ThrowsAsync<ApiException>(() => GetAsync(handler));
 
-        Assert.Equal("La API respondió 403 sin mensaje.", error.Message);
+        Assert.Equal("The API returned 403 without a message.", error.Message);
     }
 
     [Fact]

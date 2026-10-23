@@ -13,11 +13,6 @@ using Microsoft.Extensions.Logging;
 
 namespace FiscalApi.Cli.Tests.Listen;
 
-/// <summary>
-/// La escucha de CLI de la API en Kestrel, en proceso: abre sesiones, responde el long-polling con lo
-/// que la prueba encola y guarda cada acuse. Sin pasos encolados, el long-polling espera hasta que el CLI se va, como el
-/// real cuando no hay entregas. Nunca se llama a Test ni a Live.
-/// </summary>
 internal sealed class FakeListenerApi : IAsyncDisposable
 {
     public const string ListenerId = "wh_listener_0001";
@@ -43,14 +38,12 @@ internal sealed class FakeListenerApi : IAsyncDisposable
 
     public IReadOnlyCollection<JsonObject> Opens => _opens;
 
-    /// <summary>Cuándo llegó cada apertura, incluidas las rechazadas.</summary>
     public IReadOnlyCollection<DateTime> OpenTimes => _openTimes;
 
     public IReadOnlyCollection<RecordedPoll> PollsReceived => _pollsReceived;
 
     public IReadOnlyCollection<RecordedAck> Acks => _acks;
 
-    /// <param name="certificate">Con certificado, escucha en https.</param>
     public static async Task<FakeListenerApi> StartAsync(X509Certificate2? certificate = null)
     {
         var builder = WebApplication.CreateSlimBuilder();
@@ -73,7 +66,6 @@ internal sealed class FakeListenerApi : IAsyncDisposable
         return api;
     }
 
-    /// <summary>El próximo long-polling responde estas entregas.</summary>
     public FakeListenerApi Deliver(params FakeDelivery[] deliveries)
     {
         var data = new JsonArray(deliveries.Select(delivery => (JsonNode)delivery.ToJson()).ToArray());
@@ -82,14 +74,12 @@ internal sealed class FakeListenerApi : IAsyncDisposable
         return this;
     }
 
-    /// <summary>El próximo long-polling responde un error con el envelope de fapi-back.</summary>
     public FakeListenerApi FailPoll(int status, string message)
     {
         _polls.Enqueue(context => WriteErrorAsync(context, status, message));
         return this;
     }
 
-    /// <summary>El próximo long-polling corta la conexión sin responder: una caída de red a la mitad.</summary>
     public FakeListenerApi DropPoll(int times = 1)
     {
         for (var i = 0; i < times; i++)
@@ -104,21 +94,18 @@ internal sealed class FakeListenerApi : IAsyncDisposable
         return this;
     }
 
-    /// <summary>La próxima apertura responde un error (después de la primera, que la prueba no puede rechazar).</summary>
     public FakeListenerApi FailOpen(int status, string message)
     {
         _openFailures.Enqueue((status, message));
         return this;
     }
 
-    /// <summary>Los próximos <paramref name="times"/> acuses de esta entrega no responden hasta que el CLI se va.</summary>
     public FakeListenerApi HoldAck(string deliveryId, int times = 1)
     {
         _heldAcks[deliveryId] = times;
         return this;
     }
 
-    /// <summary>Los próximos <paramref name="times"/> acuses de esta entrega responden un error en lugar de 200.</summary>
     public FakeListenerApi RejectAck(string deliveryId, int status, string message, int times = 1)
     {
         var rejections = _ackRejections.GetOrAdd(deliveryId, _ => new ConcurrentQueue<(int, string)>());
@@ -167,7 +154,6 @@ internal sealed class FakeListenerApi : IAsyncDisposable
     {
         _opens.Enqueue((await JsonNode.ParseAsync(context.Request.Body))!.AsObject());
         _openTimes.Enqueue(DateTime.UtcNow);
-        // La primera apertura siempre sale bien: las fallas encoladas son para las reaperturas.
         if (_opens.Count > 1 && _openFailures.TryDequeue(out var failure))
         {
             await WriteErrorAsync(context, failure.Status, failure.Message);
@@ -200,7 +186,6 @@ internal sealed class FakeListenerApi : IAsyncDisposable
             return;
         }
 
-        // Sin entregas: espera hasta que el CLI se va (Ctrl+C o fin de la prueba) y responde la lista vacía.
         try
         {
             await Task.Delay(Timeout.Infinite, context.RequestAborted);
@@ -267,7 +252,6 @@ internal sealed class FakeListenerApi : IAsyncDisposable
     }
 }
 
-/// <summary>Una entrega como la responde el long-polling: deliveryId, los headers firmados y el cuerpo tal cual.</summary>
 internal sealed record FakeDelivery(
     string DeliveryId,
     string EventId,
@@ -278,11 +262,9 @@ internal sealed record FakeDelivery(
 {
     public const string Timestamp = "1791900000";
 
-    /// <summary>La firma real de Standard Webhooks con el secreto de la escucha: el receptor la puede verificar.</summary>
     public string Signature =>
         SignatureHeader ?? StandardWebhooksSignature.Sign(EventId, Timestamp, Encoding.UTF8.GetBytes(EnvelopeBody));
 
-    /// <summary>El sobre del evento con un formato que un re-serializador cambiaría (sangría y espacios).</summary>
     public string EnvelopeBody => Body ?? $$$"""
         {"id":"{{{EventId}}}","type":"{{{Type}}}","createdAt":"2026-10-12T18:47:53Z","personId":null,
          "data":{"relatedObject":{"id":"inv_1","type":"invoice","url":"/api/v4/invoices/inv_1"},"status":"X","previousStatus":"V"}}

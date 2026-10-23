@@ -5,24 +5,20 @@ using FiscalApi.Cli.Webhooks;
 
 namespace FiscalApi.Cli.Commands.Webhooks;
 
-/// <summary>
-/// <c>fiscalapi webhooks delete &lt;id&gt; [--yes]</c>: <c>DELETE /api/v4/webhooks/{id}</c>. Pide confirmación en la
-/// terminal; sin una persona que responda (stdin redirigido) o con <c>--json</c> (un script), exige <c>--yes</c>.
-/// </summary>
 public sealed class DeleteWebhookCommand : Command
 {
-    private readonly Argument<string> _id = new("id") { Description = "Id del webhook (o de tu escucha de CLI)." };
+    private readonly Argument<string> _id = new("id") { Description = "ID of the webhook or listen session." };
 
     private readonly Option<bool> _yes = new("--yes")
     {
-        Description = "Borra sin pedir confirmación (necesario en scripts y con --json)."
+        Description = "Delete without confirmation. Required in scripts and with --json."
     };
 
     private readonly ApiCommandContext _context;
     private readonly IConfirmationPrompt _confirmation;
 
     public DeleteWebhookCommand(ApiCommandContext context, IConfirmationPrompt confirmation)
-        : base("delete", "Da de baja un webhook y cierra sus entregas pendientes; su historial se conserva.")
+        : base("delete", "Delete a webhook and close its pending deliveries. Its history is kept.")
     {
         _context = context;
         _confirmation = confirmation;
@@ -34,23 +30,20 @@ public sealed class DeleteWebhookCommand : Command
     private async Task<int> RunAsync(ParseResult parseResult, CancellationToken cancellationToken)
     {
         var settings = _context.Settings(parseResult);
-        var id = parseResult.GetValue(_id)!;
+        var id = parseResult.GetRequiredValue(_id);
         if (!parseResult.GetValue(_yes))
         {
             if (settings.Json || !_confirmation.IsInteractive)
             {
-                throw new UsageException("Para borrar sin confirmación interactiva usa --yes.");
+                throw new UsageException("Use --yes to delete without an interactive confirmation.");
             }
 
             var confirmed = await _confirmation.ConfirmAsync(
-                $"¿Borrar el webhook {id}? Sus entregas pendientes se cerrarán.", cancellationToken);
-            // En Windows, Ctrl+C con la pregunta en pantalla hace que ReadLine devuelva null (un "no") en lugar de
-            // cancelar la espera: sin esto saldría con 0 y no con 130.
+                $"Delete webhook {id}? Its pending deliveries will be closed.", cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             if (!confirmed)
             {
-                // La persona decidió no borrar: no es un error.
-                await _context.Console.Error.WriteLineAsync($"No se borró el webhook {id}.");
+                await _context.Console.Error.WriteLineAsync($"Webhook {id} was not deleted.");
                 return ExitCodes.Success;
             }
         }
@@ -62,8 +55,7 @@ public sealed class DeleteWebhookCommand : Command
         }
         else
         {
-            // Como logout: el resultado es un aviso para la persona, no un dato.
-            await _context.Console.Error.WriteLineAsync($"Webhook {id} borrado.");
+            await _context.Console.Error.WriteLineAsync($"Webhook {id} deleted.");
         }
 
         return ExitCodes.Success;

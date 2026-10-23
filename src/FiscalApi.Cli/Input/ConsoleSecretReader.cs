@@ -2,19 +2,8 @@ using System.Text;
 
 namespace FiscalApi.Cli.Input;
 
-/// <summary>
-/// Una persona en la terminal: muestra el prompt en stderr y lee las teclas sin eco, así el secreto no queda en
-/// pantalla ni en el scrollback.
-/// </summary>
-/// <param name="prompts">Donde se escriben el prompt y el salto de línea final; nunca una tecla.</param>
-/// <param name="tryReadKey">
-/// La siguiente tecla sin eco, o <c>null</c> si todavía no hay ninguna. En producción,
-/// <c>Console.KeyAvailable</c> y <c>Console.ReadKey(intercept: true)</c>; en las pruebas, teclas simuladas.
-/// </param>
 public sealed class ConsoleSecretReader(TextWriter prompts, Func<ConsoleKeyInfo?> tryReadKey) : ISecretReader
 {
-    // Console.ReadKey bloquea sin token: se espera a que haya tecla en intervalos cortos para que Ctrl+C (que
-    // Program convierte en la cancelación del token) termine la lectura con el código 130.
     private static readonly TimeSpan KeyPollInterval = TimeSpan.FromMilliseconds(50);
 
     public async Task<string?> ReadAsync(string prompt, CancellationToken cancellationToken)

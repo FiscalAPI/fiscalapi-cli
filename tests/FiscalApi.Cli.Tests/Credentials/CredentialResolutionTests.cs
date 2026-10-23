@@ -7,10 +7,6 @@ using FiscalApi.Cli.Tests.Updates;
 
 namespace FiscalApi.Cli.Tests.Credentials;
 
-/// <summary>
-/// <c>FISCALAPI_API_KEY</c>/<c>FISCALAPI_TENANT_KEY</c> ganan sobre lo guardado, y las credenciales nunca
-/// aparecen en <c>--verbose</c> ni en un error.
-/// </summary>
 public sealed class CredentialResolutionTests
 {
     private const string EnvironmentApiKey = "sk_test_clave-del-entorno";
@@ -81,7 +77,7 @@ public sealed class CredentialResolutionTests
         var exitCode = await RunProbeAsync();
 
         Assert.Equal(ExitCodes.Usage, exitCode);
-        Assert.Contains($"No hay credenciales para {Host}.", _error.ToString());
+        Assert.Contains($"No credentials for {Host}.", _error.ToString());
         Assert.Contains("fiscalapi login", _error.ToString());
         Assert.Contains(CredentialResolver.ApiKeyVariable, _error.ToString());
     }
@@ -93,7 +89,7 @@ public sealed class CredentialResolutionTests
 
         Assert.Equal(ExitCodes.Usage, exitCode);
         Assert.Contains(
-            "No hay un almacén de credenciales disponible en este sistema. Define FISCALAPI_API_KEY y FISCALAPI_TENANT_KEY.",
+            "No credential store is available. Set FISCALAPI_API_KEY and FISCALAPI_TENANT_KEY.",
             _error.ToString());
         Assert.Contains(UnavailableCredentialStore.Detail, _error.ToString());
     }
@@ -104,9 +100,9 @@ public sealed class CredentialResolutionTests
         var exitCode = await RunProbeAsync(store: new LockedCredentialStore());
 
         Assert.Equal(ExitCodes.Failure, exitCode);
-        Assert.Contains("El almacén de credenciales del sistema existe, pero está bloqueado o no respondió.", _error.ToString());
+        Assert.Contains("The credential store is locked or not responding. Unlock it and try again.", _error.ToString());
         Assert.Contains(LockedCredentialStore.Detail, _error.ToString());
-        Assert.DoesNotContain("No hay un almacén", _error.ToString());
+        Assert.DoesNotContain("No credential store", _error.ToString());
     }
 
     [Fact]
@@ -169,7 +165,7 @@ public sealed class CredentialResolutionTests
         var exitCode = await RunProbeAsync(handler, verbose: true);
 
         Assert.Equal(ExitCodes.Failure, exitCode);
-        Assert.Contains("No se pudo conectar", _error.ToString());
+        Assert.Contains("Could not connect", _error.ToString());
         AssertNoCredentialIn(_out.ToString() + _error.ToString());
     }
 
@@ -220,10 +216,6 @@ public sealed class CredentialResolutionTests
         }
     }
 
-    /// <summary>
-    /// Un comando de prueba que pide su cliente como lo harán los comandos de la API: la fábrica resuelve las
-    /// credenciales. Corre en <see cref="CliApplication"/> para ver todo lo que llega a stdout y stderr.
-    /// </summary>
     private Task<int> RunProbeAsync(StubHttpMessageHandler? handler = null, ICredentialStore? store = null, bool verbose = false)
     {
         var globalOptions = new GlobalOptions();

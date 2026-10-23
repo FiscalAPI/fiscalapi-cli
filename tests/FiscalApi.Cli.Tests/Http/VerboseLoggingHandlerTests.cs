@@ -4,9 +4,6 @@ using FiscalApi.Cli.Http;
 
 namespace FiscalApi.Cli.Tests.Http;
 
-/// <summary>
-/// <c>--verbose</c> muestra el detalle HTTP sin headers de credenciales ni cuerpos.
-/// </summary>
 public sealed class VerboseLoggingHandlerTests
 {
     private readonly StringWriter _diagnostics = new();
@@ -57,7 +54,7 @@ public sealed class VerboseLoggingHandlerTests
 
         await Assert.ThrowsAsync<HttpRequestException>(() => client.GetAsync("api/v4/probe"));
 
-        Assert.Contains("! GET https://api.example.test/api/v4/probe falló (ConnectionError)", _diagnostics.ToString());
+        Assert.Contains("! GET https://api.example.test/api/v4/probe failed (ConnectionError)", _diagnostics.ToString());
     }
 
     [Fact]
@@ -69,7 +66,7 @@ public sealed class VerboseLoggingHandlerTests
 
         await Assert.ThrowsAsync<TaskCanceledException>(() => client.GetAsync("api/v4/probe"));
 
-        Assert.Contains("! GET https://api.example.test/api/v4/probe sin respuesta", _diagnostics.ToString());
+        Assert.Contains("! GET https://api.example.test/api/v4/probe got no response", _diagnostics.ToString());
     }
 
     private HttpClient CreateClient(StubHttpMessageHandler stub) =>

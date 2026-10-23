@@ -5,11 +5,6 @@ using FiscalApi.Cli.Tests.Http;
 
 namespace FiscalApi.Cli.Tests.Commands;
 
-/// <summary>
-/// <c>fiscalapi trigger</c> contra <c>POST /api/v4/events/trigger</c> de la API,
-/// simulada con <see cref="StubHttpMessageHandler"/>. Quien valida el tipo y el ambiente es la
-/// API: el CLI solo arma la petición y muestra su respuesta.
-/// </summary>
 public sealed class TriggerCommandTests
 {
     private const string TriggerUrl = "https://api.example.test/api/v4/events/trigger";
@@ -29,7 +24,6 @@ public sealed class TriggerCommandTests
         var request = _cli.SingleRequest();
         Assert.Equal(HttpMethod.Post, request.Method);
         Assert.Equal(new Uri(TriggerUrl), request.RequestUri);
-        // Sin --webhook no viaja webhookId (ni las demás opciones): la API elige la escucha de quien llama.
         ApiCommandHarness.AssertJsonEqual("""{"type":"invoice.canceled"}""", _cli.Body());
     }
 
@@ -57,14 +51,13 @@ public sealed class TriggerCommandTests
 
         await _cli.RunAsync("trigger", "invoice.canceled");
 
-        Assert.Equal($"Evento disparado: {EventId} al webhook escucha-1.{Environment.NewLine}", _cli.Out);
+        Assert.Equal($"Event triggered: {EventId} to webhook escucha-1.{Environment.NewLine}", _cli.Out);
         Assert.Empty(_cli.Error);
     }
 
     [Fact]
     public async Task Trigger_with_json_prints_the_data_unchanged()
     {
-        // Espacios y un campo que el CLI no conoce: --json no re-serializa.
         const string accepted = $$"""{ "eventId" : "{{EventId}}", "webhookId":"escucha-1", "nuevo": 1.50e2 }""";
         _cli.Api.RespondJson(HttpStatusCode.Accepted, ApiCommandHarness.Success(accepted));
 
@@ -73,8 +66,6 @@ public sealed class TriggerCommandTests
         _cli.AssertJsonOut(accepted);
     }
 
-    // El CLI no bloquea --live: la regla vive en la API, que responde 403 fuera de Development y Test. El harness
-    // siempre agrega --api-base, que gana sobre --live, así que solo prueba que el flag no se rechaza en el cliente.
     [Fact]
     public async Task Trigger_with_live_flag_is_not_blocked_by_the_cli_and_shows_the_api_403()
     {
@@ -86,7 +77,7 @@ public sealed class TriggerCommandTests
         Assert.Equal(ExitCodes.Failure, exitCode);
         Assert.Single(_cli.Api.Requests);
         Assert.Contains("fiscalapi trigger no está disponible en producción; usa el ambiente de pruebas.", _cli.Error);
-        Assert.Contains("Código HTTP: 403", _cli.Error);
+        Assert.Contains("HTTP status: 403", _cli.Error);
         Assert.Contains("0HN7:00000403", _cli.Error);
         Assert.Empty(_cli.Out);
     }
@@ -101,11 +92,10 @@ public sealed class TriggerCommandTests
 
         Assert.Equal(ExitCodes.Failure, exitCode);
         Assert.Contains("La escucha de CLI no está conectada; ejecuta fiscalapi listen.", _cli.Error);
-        Assert.Contains("Código HTTP: 409", _cli.Error);
+        Assert.Contains("HTTP status: 409", _cli.Error);
         Assert.Empty(_cli.Out);
     }
 
-    // El tipo lo valida la API: el CLI manda incluso uno que no autocompleta (webhook.test, que trigger rechaza).
     [Fact]
     public async Task Trigger_of_a_type_the_api_rejects_exits_1_with_the_validation_text()
     {
@@ -117,7 +107,7 @@ public sealed class TriggerCommandTests
         Assert.Equal(ExitCodes.Failure, exitCode);
         ApiCommandHarness.AssertJsonEqual("""{"type":"webhook.test"}""", _cli.Body());
         Assert.Contains("El tipo de evento 'webhook.test' no existe.", _cli.Error);
-        Assert.Contains("Código HTTP: 400", _cli.Error);
+        Assert.Contains("HTTP status: 400", _cli.Error);
         Assert.Empty(_cli.Out);
     }
 
@@ -144,7 +134,6 @@ public sealed class TriggerCommandTests
     [Fact]
     public void Type_completes_with_the_six_subscribable_event_types()
     {
-        // En orden ordinal, sin webhook.test (no se dispara: la API lo rechaza en trigger).
         string[] expected =
         [
             "download_request.abandoned",
@@ -164,10 +153,6 @@ public sealed class TriggerCommandTests
         Assert.Equal(["download_request.abandoned", "download_request.completed"], ArgumentCompletions("trigger download_req"));
     }
 
-    /// <summary>
-    /// Las sugerencias de valor al final de <paramref name="line"/>, sin las opciones (<c>--webhook</c>, <c>-h</c>,
-    /// <c>/?</c>…).
-    /// </summary>
     private static string[] ArgumentCompletions(string line)
     {
         var root = new RootCommand();

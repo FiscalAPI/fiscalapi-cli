@@ -5,10 +5,6 @@ using FiscalApi.Cli.Tests.Updates;
 
 namespace FiscalApi.Cli.Tests.Commands;
 
-/// <summary>
-/// <c>fiscalapi logout</c> es local (no recibe cliente HTTP). Termina con éxito si borró o si no había
-/// nada guardado; un almacén que existe pero falla (bloqueado, sin respuesta) es un error con código 1.
-/// </summary>
 public sealed class LogoutCommandTests
 {
     private readonly InMemoryCredentialStore _store = new();
@@ -27,7 +23,7 @@ public sealed class LogoutCommandTests
         Assert.Equal(ExitCodes.Success, exitCode);
         Assert.Null(_store.Read("test.fiscalapi.com"));
         Assert.Equal(live, _store.Read("live.fiscalapi.com"));
-        Assert.Contains("Credenciales borradas para test.fiscalapi.com.", _error.ToString());
+        Assert.Contains("Credentials deleted for test.fiscalapi.com.", _error.ToString());
         Assert.Empty(_out.ToString());
     }
 
@@ -47,7 +43,7 @@ public sealed class LogoutCommandTests
         var exitCode = await RunAsync(["logout"]);
 
         Assert.Equal(ExitCodes.Success, exitCode);
-        Assert.Contains("No había credenciales guardadas para test.fiscalapi.com.", _error.ToString());
+        Assert.Contains("No saved credentials for test.fiscalapi.com.", _error.ToString());
     }
 
     [Fact]
@@ -56,7 +52,7 @@ public sealed class LogoutCommandTests
         var exitCode = await RunAsync(["logout"], new UnavailableCredentialStore());
 
         Assert.Equal(ExitCodes.Success, exitCode);
-        Assert.Contains("No había credenciales guardadas para test.fiscalapi.com.", _error.ToString());
+        Assert.Contains("No saved credentials for test.fiscalapi.com.", _error.ToString());
     }
 
     [Fact]
@@ -65,10 +61,10 @@ public sealed class LogoutCommandTests
         var exitCode = await RunAsync(["logout"], new LockedCredentialStore());
 
         Assert.Equal(ExitCodes.Failure, exitCode);
-        Assert.Contains("No se pudieron borrar las credenciales guardadas para test.fiscalapi.com.", _error.ToString());
-        Assert.Contains("El almacén de credenciales del sistema existe, pero está bloqueado o no respondió.", _error.ToString());
+        Assert.Contains("Could not delete the saved credentials for test.fiscalapi.com.", _error.ToString());
+        Assert.Contains("The credential store is locked or not responding. Unlock it and try again.", _error.ToString());
         Assert.Contains(LockedCredentialStore.Detail, _error.ToString());
-        Assert.DoesNotContain("No había credenciales", _error.ToString());
+        Assert.DoesNotContain("No saved credentials", _error.ToString());
     }
 
     private Task<int> RunAsync(string[] args, ICredentialStore? store = null)

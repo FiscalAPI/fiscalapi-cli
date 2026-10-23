@@ -3,20 +3,17 @@ using System.CommandLine.Parsing;
 
 namespace FiscalApi.Cli;
 
-/// <summary>
-/// Opciones globales del contrato común. Son recursivas: valen en el comando raíz y en todos los subcomandos.
-/// </summary>
 public sealed class GlobalOptions
 {
     private readonly Option<bool> _live = new("--live")
     {
-        Description = "Usa el ambiente de producción (https://live.fiscalapi.com) en lugar de test.",
+        Description = "Use the live environment (https://live.fiscalapi.com) instead of test.",
         Recursive = true
     };
 
     private readonly Option<Uri?> _apiBase = new("--api-base")
     {
-        Description = "URL base de la API (p. ej. el back local). Gana sobre --live.",
+        Description = "API base URL, e.g. a local API. Overrides --live.",
         HelpName = "url",
         Recursive = true,
         CustomParser = ParseApiBase
@@ -24,13 +21,13 @@ public sealed class GlobalOptions
 
     private readonly Option<bool> _json = new("--json")
     {
-        Description = "Escribe solo JSON en stdout.",
+        Description = "Write only JSON to stdout.",
         Recursive = true
     };
 
     private readonly Option<bool> _verbose = new("--verbose")
     {
-        Description = "Muestra el detalle HTTP en stderr, sin headers de credenciales.",
+        Description = "Show HTTP details on stderr, without credential headers.",
         Recursive = true
     };
 
@@ -47,21 +44,18 @@ public sealed class GlobalOptions
         parseResult.GetValue(_json),
         parseResult.GetValue(_verbose));
 
-    // Solo URLs absolutas http/https: una URL relativa o de otro esquema terminaría en un error de red confuso.
     private static Uri? ParseApiBase(ArgumentResult result)
     {
         var value = result.Tokens.Single().Value;
         if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
         {
-            result.AddError($"--api-base debe ser una URL absoluta http o https; se recibió '{value}'.");
+            result.AddError($"--api-base must be an absolute http or https URL. Got '{value}'.");
             return null;
         }
 
-        // La API key y la tenant key viajan en headers: sin TLS solo se permite el back local (localhost,
-        // 127.0.0.0/8 o ::1), que no sale del equipo.
         if (uri.Scheme == Uri.UriSchemeHttp && !uri.IsLoopback)
         {
-            result.AddError($"--api-base con http solo se permite para localhost, 127.0.0.1 o ::1; usa https para '{value}'.");
+            result.AddError($"--api-base allows http only for localhost, 127.0.0.1 or ::1. Use https for '{value}'.");
             return null;
         }
 

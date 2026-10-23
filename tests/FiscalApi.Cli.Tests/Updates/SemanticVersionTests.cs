@@ -2,7 +2,6 @@ using FiscalApi.Cli.Updates;
 
 namespace FiscalApi.Cli.Tests.Updates;
 
-/// <summary>Versiones semánticas 2.0.0 (semver.org): las del CLI y las de los tags de sus releases.</summary>
 public sealed class SemanticVersionTests
 {
     [Theory]

@@ -4,17 +4,13 @@ using FiscalApi.Cli.Webhooks;
 
 namespace FiscalApi.Cli.Commands.Webhooks;
 
-/// <summary>
-/// <c>fiscalapi webhooks rotate-secret &lt;id&gt;</c>: <c>POST /api/v4/webhooks/{id}/rotate-secret</c>. Imprime el secreto
-/// nuevo una sola vez; el anterior sigue firmando 24 horas.
-/// </summary>
 public sealed class RotateWebhookSecretCommand : Command
 {
-    private readonly Argument<string> _id = new("id") { Description = "Id del webhook (o de tu escucha de CLI)." };
+    private readonly Argument<string> _id = new("id") { Description = "ID of the webhook or listen session." };
     private readonly ApiCommandContext _context;
 
     public RotateWebhookSecretCommand(ApiCommandContext context)
-        : base("rotate-secret", "Genera un secreto de firma nuevo y lo imprime una sola vez; el anterior sigue firmando 24 horas.")
+        : base("rotate-secret", "Rotate the signing secret and print the new one once. The old one also signs events for 24 hours.")
     {
         _context = context;
         Arguments.Add(_id);
@@ -24,7 +20,7 @@ public sealed class RotateWebhookSecretCommand : Command
     private async Task<int> RunAsync(ParseResult parseResult, CancellationToken cancellationToken)
     {
         var settings = _context.Settings(parseResult);
-        var data = await new WebhooksApi(_context.Client(settings)).RotateSecretAsync(parseResult.GetValue(_id)!, cancellationToken);
+        var data = await new WebhooksApi(_context.Client(settings)).RotateSecretAsync(parseResult.GetRequiredValue(_id), cancellationToken);
         WebhookWithSecretOutput.Write(_context, settings, data, rotated: true);
         return ExitCodes.Success;
     }

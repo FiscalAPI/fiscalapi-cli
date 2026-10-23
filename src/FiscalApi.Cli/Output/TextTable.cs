@@ -1,9 +1,5 @@
 namespace FiscalApi.Cli.Output;
 
-/// <summary>
-/// Una tabla de texto para la terminal: cada columna mide lo que su valor más largo, separadas por dos espacios y sin
-/// espacios al final de la línea. Un valor vacío o nulo se muestra como <see cref="Missing"/>.
-/// </summary>
 public static class TextTable
 {
     public const string Missing = "-";
@@ -20,10 +16,6 @@ public static class TextTable
         }
     }
 
-    /// <summary>
-    /// Un salto de línea o un tabulador dentro de un valor (p. ej. una descripción) partiría la fila: se muestran como
-    /// espacio.
-    /// </summary>
     public static string Cell(string? value) =>
         string.IsNullOrWhiteSpace(value)
             ? Missing

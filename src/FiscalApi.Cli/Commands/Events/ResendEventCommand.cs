@@ -4,25 +4,20 @@ using FiscalApi.Cli.Webhooks;
 
 namespace FiscalApi.Cli.Commands.Events;
 
-/// <summary>
-/// <c>fiscalapi events resend &lt;eventId&gt; [--webhook &lt;id&gt;]</c>: <c>POST /api/v4/events/{id}/resend</c>.
-/// Sin <c>--webhook</c>, la API lo entrega a la escucha de CLI de la persona: <c>fiscalapi listen</c> tiene
-/// que estar abierto, o responde 409.
-/// </summary>
 public sealed class ResendEventCommand : Command
 {
-    private readonly Argument<string> _eventId = new("eventId") { Description = "Id del evento que se reenvía." };
+    private readonly Argument<string> _eventId = new("eventId") { Description = "ID of the event to resend." };
 
     private readonly Option<string> _webhook = new("--webhook")
     {
-        Description = "Id del webhook que recibe el reenvío. Por omisión, tu escucha de fiscalapi listen.",
+        Description = "ID of the webhook that receives the event. Defaults to your listen session.",
         HelpName = "id"
     };
 
     private readonly ApiCommandContext _context;
 
     public ResendEventCommand(ApiCommandContext context)
-        : base("resend", "Reenvía un evento a un webhook o a tu escucha de fiscalapi listen.")
+        : base("resend", "Resend an event to a webhook or to your listen session.")
     {
         _context = context;
         Arguments.Add(_eventId);
@@ -34,7 +29,7 @@ public sealed class ResendEventCommand : Command
     {
         var settings = _context.Settings(parseResult);
         var data = await new EventsApi(_context.Client(settings)).ResendAsync(
-            parseResult.GetValue(_eventId)!, parseResult.GetValue(_webhook), cancellationToken);
+            parseResult.GetRequiredValue(_eventId), parseResult.GetValue(_webhook), cancellationToken);
         _context.WriteData(settings, data, FiscalApiJsonContext.Default.WebhookEventResend, WebhookEventView.WriteResend);
         return ExitCodes.Success;
     }
