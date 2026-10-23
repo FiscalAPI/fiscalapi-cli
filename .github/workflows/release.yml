@@ -5,11 +5,6 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Versión semántica sin la v (p. ej. 0.1.0-rc.1). El borrador se crea con el tag v<versión> sobre el commit elegido."
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -32,26 +27,31 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
       prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+
       - name: Resolve version
         id: version
         env:
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
-          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          if [ "$REF_TYPE" = "tag" ]; then
-            version="${REF_NAME#v}"
-          else
-            version="$INPUT_VERSION"
+          csproj=src/FiscalApi.Cli/FiscalApi.Cli.csproj
+          if [ "$(grep -c '<Version>' "$csproj")" -ne 1 ]; then
+            echo "::error::$csproj debe declarar exactamente un <Version>."
+            exit 1
           fi
+          version=$(sed -nE 's|.*<Version>([^<]+)</Version>.*|\1|p' "$csproj")
           identifier='(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)'
           semver="^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-${identifier}(\.${identifier})*)?(\+[0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*)?$"
           if ! [[ "$version" =~ $semver ]]; then
-            echo "::error::La versión del tag o de la entrada 'version' no es semántica (p. ej. v1.2.3 o 1.2.3-rc.1)."
+            echo "::error::<Version> de $csproj ('$version') no es semántica (p. ej. 1.2.3 o 1.2.3-rc.1)."
             exit 1
           fi
-          if [ "$REF_TYPE" = "tag" ] && [ -n "$INPUT_VERSION" ] && [ "$INPUT_VERSION" != "$version" ]; then
-            echo "::error::La entrada 'version' no coincide con el tag v$version; déjala igual a $version o corre sobre una rama."
+          if [ "$REF_TYPE" = "tag" ] && [ "${REF_NAME#v}" != "$version" ]; then
+            echo "::error::El tag $REF_NAME no coincide con <Version> $version de $csproj."
             exit 1
           fi
           without_build="${version%%+*}"
@@ -70,7 +70,7 @@ jobs:
           TAG: v${{ steps.version.outputs.version }}
         run: |
           if output=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq .ref 2>&1); then
-            echo "::error::El tag $TAG ya existe. Usa otra versión o empuja el tag para un release real."
+            echo "::error::El tag $TAG ya existe. Sube <Version> en src/FiscalApi.Cli/FiscalApi.Cli.csproj antes de publicar."
             exit 1
           fi
           if [[ "$output" != *"HTTP 404"* ]]; then
@@ -160,7 +160,7 @@ jobs:
             docker run --rm -v "$GITHUB_WORKSPACE:/src" -w /src "$LINUX_BUILD_IMAGE" \
               bash .github/scripts/publish-linux.sh "$VERSION" "$PUBLISH_DIR"
           else
-            dotnet publish src/FiscalApi.Cli -c Release -r "$RID" -p:Version="$VERSION" -o "$PUBLISH_DIR"
+            dotnet publish src/FiscalApi.Cli -c Release -r "$RID" -o "$PUBLISH_DIR"
           fi
 
       - name: Smoke test

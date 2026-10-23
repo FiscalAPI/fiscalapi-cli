@@ -21,7 +21,7 @@ curl -fsSL --retry 3 https://dot.net/v1/dotnet-install.sig -o /tmp/dotnet-instal
 bash "$(dirname "${BASH_SOURCE[0]}")/verify-dotnet-install.sh" /tmp/dotnet-install.sh /tmp/dotnet-install.sig
 bash /tmp/dotnet-install.sh --jsonfile global.json --install-dir "$DOTNET_ROOT" --no-path
 
-dotnet publish src/FiscalApi.Cli -c Release -r linux-x64 -p:Version="$version" -o "$output"
+dotnet publish src/FiscalApi.Cli -c Release -r linux-x64 -o "$output"
 
 binary="$output/fiscalapi"
 required_glibc=$(objdump -T "$binary" | grep -oE 'GLIBC_[0-9]+(\.[0-9]+)+' | sed 's/^GLIBC_//' | sort -uV | tail -n 1)
