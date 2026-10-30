@@ -60,7 +60,7 @@ resultado va después, en stdout:
 ```text
 $ fiscalapi events list --page-size 1 --verbose
 > GET https://test.fiscalapi.com/api/v4/events?pageSize=1
-> User-Agent: fiscalapi-cli/4.0.462
+> User-Agent: fiscalapi-cli/4.0.469
 < 200 OK (154 ms)
 < Content-Type: application/json; charset=utf-8
 ```

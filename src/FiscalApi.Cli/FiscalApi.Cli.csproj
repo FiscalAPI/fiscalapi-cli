@@ -5,7 +5,7 @@
     <AssemblyName>fiscalapi</AssemblyName>
     <RootNamespace>FiscalApi.Cli</RootNamespace>
     <PublishAot>true</PublishAot>
-    <Version>4.0.462</Version>
+    <Version>4.0.469</Version>
     <Product>FiscalAPI CLI</Product>
     <Company>FiscalAPI</Company>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

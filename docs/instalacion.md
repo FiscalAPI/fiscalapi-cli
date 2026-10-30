@@ -17,7 +17,7 @@ y un archivo `SHA256SUMS` con el SHA-256 de cada empaque.
 El binario de Linux no corre en distribuciones con musl, como Alpine.
 
 Los comandos de abajo descargan la última versión publicada. Para una versión fija, cambia `releases/latest/download`
-por `releases/download/v<versión>`, por ejemplo `releases/download/v4.0.462`.
+por `releases/download/v<versión>`, por ejemplo `releases/download/v4.0.469`.
 
 ## Linux
 
@@ -134,7 +134,7 @@ conservan, porque viven en el almacén de credenciales del sistema y no junto al
 
 ```text
 $ fiscalapi --version
-4.0.462
+4.0.469
 ```
 
 ### Aviso de versión nueva
@@ -144,7 +144,7 @@ enviar tus credenciales. Si hay uno más nuevo, al terminar el comando escribe e
 
 ```text
 
-fiscalapi 4.0.463 is available (you have 4.0.462).
+fiscalapi 4.0.470 is available (you have 4.0.469).
 Download it from https://github.com/FiscalAPI/fiscalapi-cli/releases/tag/v<version>
 ```
 
