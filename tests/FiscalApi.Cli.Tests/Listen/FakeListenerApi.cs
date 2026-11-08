@@ -267,7 +267,7 @@ internal sealed record FakeDelivery(
 
     public string EnvelopeBody => Body ?? $$$"""
         {"id":"{{{EventId}}}","type":"{{{Type}}}","createdAt":"2026-10-12T18:47:53Z","personId":null,
-         "data":{"relatedObject":{"id":"inv_1","type":"invoice","url":"/api/v4/invoices/inv_1"},"status":"X","previousStatus":"V"}}
+         "data":{"relatedObject":{"id":"inv_1","type":"invoice","url":"/api/v4/invoices/inv_1"},"status":"X","previousStatus":"V","reason":null}}
         """;
 
     public IReadOnlyDictionary<string, string> Headers

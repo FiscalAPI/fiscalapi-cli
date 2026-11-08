@@ -10,10 +10,10 @@ public sealed class EventsCommandTests
     private const string EventId = "0d6f5c1e-8a2b-4c3d-9e8f-7a6b5c4d3e2f";
 
     private const string Envelope =
-        $$$"""{"id":"{{{EventId}}}","type":"invoice.canceled","createdAt":"2026-10-12T15:47:46Z","personId":"persona-1","data":{"relatedObject":{"id":"factura-1","type":"invoice","url":"/api/v4/invoices/factura-1"},"status":"X","previousStatus":"C"}}""";
+        $$$"""{"id":"{{{EventId}}}","type":"invoice.canceled","createdAt":"2026-10-12T15:47:46Z","personId":"persona-1","data":{"relatedObject":{"id":"factura-1","type":"invoice","url":"/api/v4/invoices/factura-1"},"status":"X","previousStatus":"C","reason":null}}""";
 
     private const string OtherEnvelope =
-        """{"id":"evt-2","type":"webhook.test","createdAt":"2026-10-12T15:40:00Z","personId":null,"data":{"relatedObject":{"id":"we-1","type":"webhook","url":"/api/v4/webhooks/we-1"},"status":null,"previousStatus":null}}""";
+        """{"id":"evt-2","type":"webhook.test","createdAt":"2026-10-12T15:40:00Z","personId":null,"data":{"relatedObject":{"id":"we-1","type":"webhook","url":"/api/v4/webhooks/we-1"},"status":null,"previousStatus":null,"reason":null}}""";
 
     private const string Page =
         $$"""{"items":[{{Envelope}},{{OtherEnvelope}}],"pageNumber":1,"totalPages":1,"totalCount":2,"hasPreviousPage":false,"hasNextPage":false}""";
