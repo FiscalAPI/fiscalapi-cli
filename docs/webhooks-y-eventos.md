@@ -243,7 +243,8 @@ $ fiscalapi events retrieve 0d6f5c1e-8a2b-4c3d-9e8f-7a6b5c4d3e2f
         "url": "/api/v4/invoices/c4d3e2f1-a0b9-4c8d-9e7f-6a5b4c3d2e1f"
       },
       "status": "X",
-      "previousStatus": "C"
+      "previousStatus": "C",
+      "reason": null
     }
   }
 ```

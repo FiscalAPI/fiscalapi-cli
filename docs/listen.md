@@ -153,7 +153,7 @@ Con `--json`, stdout lleva un objeto JSON por entrega, uno por línea (JSON Line
 `Ready. Your signing secret is` siguen en stderr como texto.
 
 ```json
-{"time":"2026-10-12T09:47:46.1234567-06:00","deliveryId":"a7b8c9d0-e1f2-4a3b-8c4d-5e6f7a8b9c0d","eventId":"3f9c1d2e-7b4a-4e8f-9a1b-2c3d4e5f6a7b","type":"invoice.canceled","statusCode":200,"latencyMs":12,"event":{"id":"3f9c1d2e-7b4a-4e8f-9a1b-2c3d4e5f6a7b","type":"invoice.canceled","createdAt":"2026-10-12T15:47:46Z","personId":null,"data":{"relatedObject":{"id":"c4d3e2f1-a0b9-4c8d-9e7f-6a5b4c3d2e1f","type":"invoice","url":"/api/v4/invoices/c4d3e2f1-a0b9-4c8d-9e7f-6a5b4c3d2e1f"},"status":"X","previousStatus":"C"}}}
+{"time":"2026-10-12T09:47:46.1234567-06:00","deliveryId":"a7b8c9d0-e1f2-4a3b-8c4d-5e6f7a8b9c0d","eventId":"3f9c1d2e-7b4a-4e8f-9a1b-2c3d4e5f6a7b","type":"invoice.canceled","statusCode":200,"latencyMs":12,"event":{"id":"3f9c1d2e-7b4a-4e8f-9a1b-2c3d4e5f6a7b","type":"invoice.canceled","createdAt":"2026-10-12T15:47:46Z","personId":null,"data":{"relatedObject":{"id":"c4d3e2f1-a0b9-4c8d-9e7f-6a5b4c3d2e1f","type":"invoice","url":"/api/v4/invoices/c4d3e2f1-a0b9-4c8d-9e7f-6a5b4c3d2e1f"},"status":"X","previousStatus":"C","reason":null}}}
 ```
 
 | Campo        | Contenido                                                                                                       |
