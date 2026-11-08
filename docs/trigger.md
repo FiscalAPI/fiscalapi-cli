@@ -74,7 +74,8 @@ $ fiscalapi trigger invoice.canceled --json
 ## Cómo se entrega
 
 - El evento tiene la forma y la firma de uno real: el recurso, `status`, `previousStatus` y `reason` de su tipo (por
-  ejemplo, `invoice.canceled` pasa de `C` a `X` y su `reason` es `null`). Tu servidor lo verifica con el mismo código.
+  ejemplo, `invoice.canceled` pasa de `C` a `X` con `reason` en `null`, e `invoice.cancellation_rejected` trae
+  `reason: "rejectedByRecipient"`). Tu servidor lo verifica con el mismo código.
 - Llega solo al destino indicado, aunque no esté suscrito a ese tipo ni a esa persona. Tus demás webhooks no lo
   reciben.
 - Es un solo intento: si tu servidor falla, no se reintenta. Repítelo con `trigger` o con
